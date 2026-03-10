@@ -15,7 +15,6 @@ export class BaseService {
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.config.token}`,
       },
     })
 
