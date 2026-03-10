@@ -268,6 +268,4 @@ export interface ICreateTaskParams {
   t: (key: string) => string
   /** taskId 获取成功回调 */
   onTaskIdReady?: (taskId: string) => void
-  /** 需要登录回调 */
-  onLoginRequired?: () => void
 }

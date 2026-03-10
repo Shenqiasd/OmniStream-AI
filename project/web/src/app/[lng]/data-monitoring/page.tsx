@@ -102,23 +102,17 @@ export default function DataMonitoringPage() {
 
     setAddLoading(true)
     try {
-      // 使用 silent 参数避免自动显示错误提示，手动处理 401
       const response = await http.post('statistics/posts/monitor/create', {
         link: noteLink,
         platform: selectedPlatform,
-      }, true) // silent = true
+      })
 
-      // 检查响应 code
       if (response && response.code === 0) {
         toast.success(t('addModal.addSuccess'))
         setNoteLink('')
         loadMonitoringList(1, filterPlatform === 'all' ? undefined : filterPlatform)
       }
-      else if (response && response.code === 401) {
-        openLoginModal()
-      }
       else if (response) {
-        // 其他错误
         toast.error(response.message || t('error.addFailed'))
       }
       else {

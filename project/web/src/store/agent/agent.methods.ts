@@ -262,7 +262,7 @@ export function createStoreMethods(ctx: IMethodsContext) {
     calculateProgress,
 
     /** 获取状态配置 */
-    getStatusConfig,
+    getStatusConfig: (status: string) => getStatusConfig(status),
 
     // ============ 核心方法：创建任务 ============
 
@@ -270,20 +270,13 @@ export function createStoreMethods(ctx: IMethodsContext) {
      * 创建 AI 生成任务
      */
     async createTask(params: ICreateTaskParams): Promise<string | null> {
-      const { prompt, medias = [], t, onTaskIdReady, onLoginRequired } = params
+      const { prompt, medias = [], t, onTaskIdReady } = params
 
       if (!prompt.trim()) {
         return null
       }
 
       refs.t.value = t
-
-      // 检查登录状态
-      const currentToken = useUserStore.getState().token
-      if (!currentToken) {
-        onLoginRequired?.()
-        return null
-      }
 
       try {
         // 重置状态
