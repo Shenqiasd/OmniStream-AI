@@ -13,7 +13,7 @@ export async function bilibiliSkip(platType: PlatType, spaceId?: string) {
 
   const res: any = await apiGetBilibiliLoginUrl('pc', spaceId)
   if (res?.code === 1) {
-    useUserStore.getState().logout()
+    useUserStore.getState().clearLoginStatus()
     return
   }
   if (res?.code !== 0)

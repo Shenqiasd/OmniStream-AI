@@ -284,7 +284,6 @@ export const agentApi = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${useUserStore.getState().token || ''}`,
           'Accept-Language': lng,
         },
         body: JSON.stringify(params),

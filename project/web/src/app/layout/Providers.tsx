@@ -17,7 +17,6 @@ import { useShallow } from 'zustand/shallow'
 import { useDataStatisticsStore } from '@/app/[lng]/dataStatistics/useDataStatistics'
 import useCssVariables from '@/app/hooks/useCssVariables'
 import { fallbackLng } from '@/app/i18n/settings'
-import { GlobalLoginModal } from '@/components/common/GlobalLoginModal'
 import NotificationCenter from '@/components/ui/NotificationCenter'
 import { Toaster } from '@/components/ui/sonner'
 import { useAccountStore } from '@/store/account'
@@ -50,11 +49,6 @@ export function Providers({
 
   useEffect(() => {
     if (_hasHydrated) {
-      const urlParams = new URLSearchParams(window.location.search)
-      const queryToken = urlParams.get('token')
-      if (queryToken) {
-        useUserStore.getState().setToken(queryToken)
-      }
       useUserStore.getState().appInit()
     }
   }, [_hasHydrated])
@@ -85,7 +79,6 @@ export function Providers({
                 <Toaster position="top-center" richColors />
                 {/* 专用右上角通知中心（不影响现有 toast） */}
                 <NotificationCenter />
-                <GlobalLoginModal />
                 {children}
               </AntdRegistry>
             </Suspense>

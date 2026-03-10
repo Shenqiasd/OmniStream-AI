@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { GetToken, Public, TokenInfo } from '@yikart/aitoearn-auth'
 import { ApiDoc } from '@yikart/common'
@@ -40,7 +40,6 @@ export class TwitterController {
   }
 
   @Public()
-  @UseGuards(OrgGuard)
   @ApiDoc({
     summary: 'Handle Twitter OAuth Callback',
     query: CreateAccountAndSetAccessTokenDto.schema,

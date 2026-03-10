@@ -29,26 +29,18 @@ interface BalanceEntryProps extends SidebarCommonProps {
 export function BalanceEntry({ collapsed, onClick }: BalanceEntryProps) {
   const { t } = useTransClient('common')
 
-  const { token, creditsBalance, creditsLoading, fetchCreditsBalance } = useUserStore(
+  const { creditsBalance, creditsLoading, fetchCreditsBalance } = useUserStore(
     useShallow(state => ({
-      token: state.token,
       creditsBalance: state.creditsBalance,
       creditsLoading: state.creditsLoading,
       fetchCreditsBalance: state.fetchCreditsBalance,
     })),
   )
 
-  // 登录后获取余额
+  // 获取余额
   useEffect(() => {
-    if (token) {
-      fetchCreditsBalance()
-    }
-  }, [token, fetchCreditsBalance])
-
-  // 未登录不显示
-  if (!token) {
-    return null
-  }
+    fetchCreditsBalance()
+  }, [fetchCreditsBalance])
 
   const content = (
     <button

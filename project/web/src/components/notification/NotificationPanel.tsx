@@ -49,7 +49,6 @@ interface NotificationPanelProps {
 
 const NotificationPanel: React.FC<NotificationPanelProps> = ({ visible, onClose }) => {
   const { t } = useTransClient('notification' as any)
-  const token = useUserStore(state => state.token)
   const router = useRouter()
   const { lng } = useParams()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -105,14 +104,9 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ visible, onClose 
   // 获取通知列表
   const fetchNotifications = async (page: number = 1, pageSize: number = 20) => {
     // 如果没有登录信息，不发送请求
-    if (!token) {
-      setNotifications([])
-      return
-    }
-
     try {
       setLoading(true)
-      const response = await getNotificationList({ page, pageSize })
+  const response = await getNotificationList({ page, pageSize })
       if (response && response.data) {
         setNotifications(response.data.list || [])
         setNotificationPagination(prev => ({
@@ -133,11 +127,6 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ visible, onClose 
   // 获取未读数量
   const fetchUnreadCount = async () => {
     // 如果没有登录信息，不发送请求
-    if (!token) {
-      setUnreadCount(0)
-      return
-    }
-
     try {
       const response = await getUnreadCount()
       if (response && response.data) {
@@ -151,11 +140,6 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ visible, onClose 
 
   // 获取账号列表
   const fetchAccountList = async () => {
-    if (!token) {
-      setAccountList([])
-      return
-    }
-
     try {
       const response = await getAccountListApi()
       if (response && response.data) {
@@ -197,7 +181,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ visible, onClose 
   const fetchTaskDetail = async (opportunityId: string) => {
     try {
       setTaskLoading(true)
-      const response: any = await getTaskDetail(opportunityId)
+  const response: any = await getTaskDetail(opportunityId)
       if (response && response.data && response.code === 0) {
         setSelectedTask(response.data)
       }
@@ -293,8 +277,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ visible, onClose 
               coverUrl: media.coverUrl ? getOssUrl(media.coverUrl) : undefined,
             })),
           }))
-
-          const publishData = {
+  const publishData = {
             flowId: `${publishAccount.uid}_${generateUUID()}`, // 使用账号的uid作为flowId
             accountType: publishAccount.type,
             accountId: publishAccount.id,
@@ -496,11 +479,11 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ visible, onClose 
   // 格式化时间
   const formatTime = (timeString: string) => {
     const date = new Date(timeString)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const minutes = Math.floor(diff / (1000 * 60))
-    const hours = Math.floor(diff / (1000 * 60 * 60))
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const minutes = Math.floor(diff / (1000 * 60))
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
 
     if (minutes < 1)
       return t('time.justNow' as any)
@@ -593,7 +576,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ visible, onClose 
    */
   const getPlatformIcon = (type: string) => {
     const info = AccountPlatInfoMap.get(type as PlatType)
-    const icon: any = info?.icon
+  const icon: any = info?.icon
     if (!icon)
       return null
     if (typeof icon === 'string')
@@ -723,7 +706,7 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ visible, onClose 
       fetchUnreadCount()
       fetchAccountList()
     }
-  }, [visible, token])
+  }, [visible])
 
   // 监听账号列表变化，检查是否有新添加的符合条件账号
   useEffect(() => {

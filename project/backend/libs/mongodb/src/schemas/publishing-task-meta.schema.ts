@@ -134,6 +134,6 @@ export class PublishErrorData {
   @Prop({ required: true, default: '' })
   message: string
 
-  @Prop({ required: false })
+  @Prop({ required: false, type: Object })
   originalData?: any
 }

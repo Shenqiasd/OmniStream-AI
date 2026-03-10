@@ -17,7 +17,7 @@ export async function facebookSkip(platType: PlatType, spaceId?: string) {
 
   const res: any = await getFacebookAuthUrlApi('pc', spaceId)
   if (res?.code == 1) {
-    useUserStore.getState().logout()
+    useUserStore.getState().clearLoginStatus()
     return
   }
   if (res?.code !== 0)

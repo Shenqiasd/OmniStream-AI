@@ -49,8 +49,6 @@ export function HomeChat({
   const { t: tHome } = useTransClient('home')
   const router = useRouter()
   const { lng } = useParams()
-  const token = useUserStore(state => state.token)
-
   // 获取默认提示文本
   const defaultPrompt = t('input.placeholder') || 'Help me create a cat dancing video and post it directly on YouTube'
 
@@ -97,13 +95,8 @@ export function HomeChat({
   )
 
   // 处理添加账号点击 - 未登录时弹出登录弹窗
-  const handleAddChannelClick = useCallback(() => {
-    if (!token) {
-      openLoginModal(() => openConnectList())
-      return
-    }
-    openConnectList()
-  }, [token, openConnectList])
+  const handleAddChannelClick = useCallback(() => {    openConnectList()
+  }, [openConnectList])
 
   // 使用媒体上传 Hook
   const {
@@ -207,14 +200,9 @@ export function HomeChat({
       return
 
     // 检查登录状态 - 未登录时显示登录弹窗
-    if (!token) {
-      openLoginModal(doSend)
-      return
-    }
-
     // 执行发送逻辑
     doSend()
-  }, [inputValue, token, doSend])
+  }, [inputValue, doSend])
 
   return (
     <div className={cn('w-full max-w-3xl mx-auto', className)}>

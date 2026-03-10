@@ -71,8 +71,6 @@ export function ActionCard({ action, className }: IActionCardProps) {
   const pathname = usePathname()
   const { lng } = useParams()
   const { t } = useTransClient('chat')
-  const token = useUserStore(state => state.token)
-
   // Agent store 方法
   const { continueTask } = useAgentStore()
 
@@ -204,13 +202,7 @@ export function ActionCard({ action, className }: IActionCardProps) {
 
     switch (action.type) {
       case 'createChannel':
-        // 未登录时先登录
-        if (!token) {
-          toast.warning(t('home.loginRequired' as any) || 'Please login first')
-          openLoginModal(() => openChannelManager())
-          return
-        }
-        // 打开频道管理器
+        // 未登录时先登录        // 打开频道管理器
         openChannelManager()
         break
       case 'updateChannel':

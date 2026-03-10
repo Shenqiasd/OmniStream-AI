@@ -65,7 +65,7 @@ function UserAvatar({ collapsed, onOpenSettings }: { collapsed: boolean, onOpenS
 }
 
 export function UserSection({ collapsed, onLogin, onOpenSettings }: UserSectionProps) {
-  const token = useUserStore(state => state.token)
+  // const token = useUserStore(state => state.token) // Removed - no auth
   const { t } = useTransClient('common')
 
   if (token) {

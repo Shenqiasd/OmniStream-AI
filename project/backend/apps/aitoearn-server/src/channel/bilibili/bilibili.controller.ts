@@ -5,7 +5,6 @@ import {
   Post,
   Query,
   Render,
-  UseGuards,
 } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { GetToken, Public, TokenInfo } from '@yikart/aitoearn-auth'
@@ -27,7 +26,6 @@ export class BilibiliController {
   ) {}
 
   @Public()
-  @UseGuards(OrgGuard)
   @Get('auth/back/:taskId')
   @Render('auth/back')
   async getAccessToken(

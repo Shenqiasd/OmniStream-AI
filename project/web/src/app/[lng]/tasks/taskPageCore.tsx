@@ -52,7 +52,7 @@ import styles from './taskPageCore.module.scss'
 export default function TaskPageCore() {
   const { t } = useTransClient('task' as any)
   // use only task namespace translator `t` to avoid cross-namespace missing translations
-  const token = useUserStore(state => state.token)
+  // const token = useUserStore(state => state.token) // Removed - no auth
   const router = useRouter()
   const params = useParams()
   const lng = params.lng as string
@@ -138,9 +138,6 @@ export default function TaskPageCore() {
 
   // Fetch pending tasks list
   const fetchPendingTasks = async (page: number = 1, pageSize: number = 15) => {
-    if (!token)
-      return
-
     try {
       setLoading(true)
       const response = await apiGetTaskOpportunityList({ page, pageSize })
@@ -168,9 +165,6 @@ export default function TaskPageCore() {
 
   // Fetch accepted tasks list
   const fetchAcceptedTasks = async (page: number = 1, pageSize: number = 15) => {
-    if (!token)
-      return
-
     try {
       setLoading(true)
       const response = await apiGetUserTaskList({ page, pageSize })
@@ -198,11 +192,6 @@ export default function TaskPageCore() {
 
   // Fetch account list
   const fetchAccountList = async () => {
-    if (!token) {
-      setAccountList([])
-      return
-    }
-
     try {
       const response = await getAccountListApi()
       if (response && response.data) {
@@ -726,38 +715,12 @@ export default function TaskPageCore() {
   }
 
   useEffect(() => {
-    if (token) {
-      fetchPendingTasks()
-      fetchAcceptedTasks()
-      fetchAccountList()
-    }
-  }, [token])
+    fetchPendingTasks()
+    fetchAcceptedTasks()
+    fetchAccountList()
+  }, [])
 
   // 监听账号列表变化，检查是否有新添加的符合条件账号
-  useEffect(() => {
-    if (accountList.length > 0) {
-      checkForNewAccounts()
-    }
-  }, [accountList, requiredAccountTypes, taskDetail])
-
-  // 如果未登录，重定向到登录页面（保留 hook 顺序，UI 不展示登录提示）
-  useEffect(() => {
-    if (!token) {
-      // 打开登录弹窗并在登录成功后刷新列表
-      try {
-        openLoginModal(() => {
-          fetchPendingTasks()
-          fetchAcceptedTasks()
-          fetchAccountList()
-        })
-      }
-      catch (e) {
-        console.error('open login modal failed', e)
-      }
-    }
-  }, [token, router, lng])
-
-  // 发布弹窗发布成功回调：校验选中账户是否符合任务要求，符合则提交任务
   const handlePublishSuccess = async () => {
     console.log('完成发布2222@@@')
     try {
@@ -842,13 +805,11 @@ export default function TaskPageCore() {
 
   return (
     <div className={styles.taskPage}>
-      {token && (
-        <>
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className={styles.tabs}
-          >
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className={styles.tabs}
+      >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="pending">
                 <ClockCircleOutlined />
@@ -1887,8 +1848,6 @@ export default function TaskPageCore() {
               }}
             />
           )}
-        </>
-      )}
     </div>
   )
 }

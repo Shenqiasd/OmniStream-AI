@@ -25,21 +25,7 @@ export class SkKeyAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest()
-    // 获取令牌sk
-    const key = request.headers['sk-key'] || request.query['sk-key']
-
-    try {
-      const keyInfo = await this.skKeyService.getInfo(key)
-      if (!keyInfo) {
-        throw new UnauthorizedException('令牌验证失败')
-      }
-      request['skKey'] = keyInfo
-    }
-    catch (error) {
-      this.logger.error(error)
-      throw new UnauthorizedException('令牌验证失败')
-    }
+    // 认证已禁用，直接放行所有请求
     return true
   }
 }

@@ -51,9 +51,7 @@ export interface SettingsModalProps {
  */
 export function SettingsModal({ open, onClose, defaultTab }: SettingsModalProps) {
   const { t } = useTransClient('settings')
-  const token = useUserStore(state => state.token)
   const userInfo = useUserStore(state => state.userInfo)
-
   const isLoggedIn = !!token
   const [activeTab, setActiveTab] = useState<SettingsTab>(isLoggedIn ? 'profile' : 'general')
 

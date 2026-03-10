@@ -14,7 +14,6 @@ import {
   Query,
   Res,
   UploadedFile,
-  UseGuards,
   UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
@@ -64,7 +63,6 @@ export class TiktokController {
   }
 
   @Public()
-  @UseGuards(OrgGuard)
   @ApiDoc({
     summary: 'Handle TikTok OAuth Callback',
     query: CreateAccountAndSetAccessTokenDto.schema,

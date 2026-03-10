@@ -41,7 +41,6 @@ export interface UserInfo {
 }
 
 export interface IUserStore {
-  token?: string
   // 用户信息
   userInfo?: Partial<UserInfo>
   // 添加账户是否默认开启代理
@@ -61,7 +60,6 @@ export interface IUserStore {
 }
 
 const state: IUserStore = {
-  token: undefined,
   userInfo: {},
   isAddAccountPorxy: false,
   lang: i18next.language || 'en',
@@ -98,9 +96,6 @@ export const useUserStore = createPersistStore(
       },
       setIsAddAccountPorxy(isAddAccountPorxy: boolean) {
         set({ isAddAccountPorxy })
-      },
-      setToken: (token: string) => {
-        set({ token })
       },
       setUserInfo: (userInfo: UserInfo) => {
         set({ userInfo })
@@ -150,12 +145,6 @@ export const useUserStore = createPersistStore(
       clearLoginStatus: () => {
         set({ ...getState() })
         useAccountStore.getState().clear()
-      },
-
-      // 登出
-      logout() {
-        methods.clearLoginStatus()
-        window.location.href = '/'
       },
     }
 

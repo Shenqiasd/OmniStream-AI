@@ -33,7 +33,6 @@ import { MyChannelsEntry } from './components/BottomSection/MyChannelsEntry'
  */
 function LayoutSidebar() {
   const router = useRouter()
-  const token = useUserStore(state => state.token)
   const route = useSelectedLayoutSegments()
   const { unreadCount } = useNotification()
 

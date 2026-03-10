@@ -187,7 +187,7 @@ function MobileNavList({
               'flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-all w-full',
               'text-muted-foreground hover:bg-muted hover:text-foreground',
               moreOpen && 'bg-muted text-foreground',
-            )}
+    
           >
             <span className="flex items-center justify-center">
               <MoreHorizontal size={20} />
@@ -197,7 +197,7 @@ function MobileNavList({
               <ChevronUp size={18} className="text-muted-foreground" />
             ) : (
               <ChevronDown size={18} className="text-muted-foreground" />
-            )}
+    
           </button>
 
           {/* Expanded items */}
@@ -214,7 +214,7 @@ function MobileNavList({
                 />
               ))}
             </div>
-          )}
+  
         </div>
       )}
     </nav>
@@ -232,7 +232,7 @@ function MobileUserSection({
   onOpenSettings: (tab?: SettingsTab) => void
 }) {
   const { t } = useTransClient('common')
-  const token = useUserStore(state => state.token)
+  // const token = useUserStore(state => state.token) // Removed - no auth
   const userInfo = useUserStore(state => state.userInfo)
 
   const handleLogin = () => {
@@ -284,7 +284,7 @@ function MobileBottomSection({
 }) {
   const { t } = useTransClient('common')
   const lng = useGetClientLng()
-  const token = useUserStore(state => state.token)
+  // const token = useUserStore(state => state.token) // Removed - no auth
   const userInfo = useUserStore(state => state.userInfo)
   const { unreadCount } = useNotification()
 
@@ -312,7 +312,7 @@ function MobileBottomSection({
     if (token) {
       fetchCreditsBalance()
     }
-  }, [token, fetchCreditsBalance])
+  }, [ fetchCreditsBalance])
 
   return (
     <>
@@ -331,7 +331,7 @@ function MobileBottomSection({
         </a>
 
         {/* 余额 - 仅登录后显示 */}
-        {token && (
+        
           <button
             onClick={() => {
               onClose()
@@ -350,9 +350,9 @@ function MobileBottomSection({
                 $
                 {centsToUsd(creditsBalance)}
               </span>
-            )}
+    
           </button>
-        )}
+
 
         {/* VIP 会员入口 */}
         <Link
@@ -367,13 +367,13 @@ function MobileBottomSection({
             </div>
             {!isVip && (
               <span className="text-xs text-muted-foreground">{t('subscribe')}</span>
-            )}
+    
           </div>
           {!isVip && (
             <div className="mt-1 ml-8">
               <span className="text-[10px] text-orange-500 font-medium">$19→$50 Credits</span>
             </div>
-          )}
+  
         </Link>
       </div>
 
@@ -398,7 +398,7 @@ function MobileBottomSection({
         </button>
 
         {/* 通知 - 仅登录后显示 */}
-        {token && (
+        
           <button
             onClick={() => setNotificationVisible(true)}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted transition-colors relative cursor-pointer"
@@ -412,9 +412,9 @@ function MobileBottomSection({
               >
                 {unreadCount > 99 ? '99+' : unreadCount}
               </Badge>
-            )}
+    
           </button>
-        )}
+
       </div>
 
       {/* 外部链接 - Docs 和 GitHub */}
@@ -440,7 +440,7 @@ function MobileNav() {
   const router = useRouter()
   const lng = useGetClientLng()
   const route = useSelectedLayoutSegments()
-  const token = useUserStore(state => state.token)
+  // const token = useUserStore(state => state.token) // Removed - no auth
   const {
     settingsVisible,
     settingsDefaultTab,
@@ -506,7 +506,7 @@ function MobileNav() {
         className={cn(
           'md:hidden fixed top-0 right-0 z-50 w-[300px] h-full bg-background shadow-xl transition-transform duration-300 ease-in-out flex flex-col',
           isOpen ? 'translate-x-0' : 'translate-x-full',
-        )}
+
       >
         {/* 抽屉头部 */}
         <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">

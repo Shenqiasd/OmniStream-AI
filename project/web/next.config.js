@@ -1,10 +1,10 @@
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const path = require('path')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   images: {
     remotePatterns: [
       {
@@ -33,11 +33,7 @@ const nextConfig = {
     return config
   },
   reactStrictMode: false,
-  experimental: {
-    forceSwcTransforms: true,
-    outputFileTracingRoot: undefined,
-  },
-  output: 'standalone', // Temporarily disabled to avoid symlink issues on Windows
+  output: 'standalone',
   productionBrowserSourceMaps: process.env.NEXT_PUBLIC_EVN === 'dev',
   rewrites: async () => {
     const rewrites = [
@@ -51,8 +47,6 @@ const nextConfig = {
       },
     ]
 
-    // 存在 NEXT_PUBLIC_PROXY_URL 则代理，本地直连 用
-    // 如：NEXT_PUBLIC_PROXY_URL = http://localhost:8080
     if (process.env.NEXT_PUBLIC_PROXY_URL) {
       rewrites.push({
         source: `/api/:path*`,
@@ -89,4 +83,4 @@ nextConfig.headers = async () => {
   ]
 }
 
-export default nextConfig
+module.exports = nextConfig

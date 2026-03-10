@@ -19,17 +19,11 @@ type RequestParamsWithSilent = RequestParams & {
 const fetchService = new FetchService({
   baseURL: `${process.env.NEXT_PUBLIC_API_URL}/`,
   requestInterceptor(requestParams) {
-    const token = useUserStore.getState().token
-    requestParams.headers = {
-      ...(requestParams.headers || {}),
-      Authorization: token ? `Bearer ${token}` : '',
-    }
-
     // 添加语言头
     if (typeof window !== 'undefined') {
       const lng = useUserStore.getState().lang
       requestParams.headers = {
-        ...requestParams.headers,
+        ...(requestParams.headers || {}),
         'Accept-Language': lng,
       }
     }
@@ -52,24 +46,6 @@ export async function request<T>(params: RequestParamsWithSilent) {
     const contactLabel = directTrans('common', 'contact')
     const contactText = `${contactLabel} ${CONTACT}`
 
-    // 未登录拦截
-    if (data.code === 401 && !useUserStore.getState().token) {
-      // 如果是 silent 模式，返回完整响应以便调用方处理
-      if (params.silent) {
-        return data
-      }
-      return null
-    }
-
-    // 已登录、但是登录过期
-    if (data.code === 401) {
-      useUserStore.getState().logout()
-      // 如果是 silent 模式，返回完整响应以便调用方处理
-      if (params.silent) {
-        return data
-      }
-    }
-
     if (data.code !== 0) {
       if (!params.silent && typeof window !== 'undefined') {
         notification.warning({
@@ -88,8 +64,7 @@ export async function request<T>(params: RequestParamsWithSilent) {
     return data
   }
   catch (e) {
-    if ((useUserStore.getState().token || params.url.includes('login/mail'))
-      && !params.silent && typeof window !== 'undefined') {
+    if (!params.silent && typeof window !== 'undefined') {
       const errText = directTrans('common', 'networkError')
       const contactLabelNow = directTrans('common', 'contact')
       notification.error({

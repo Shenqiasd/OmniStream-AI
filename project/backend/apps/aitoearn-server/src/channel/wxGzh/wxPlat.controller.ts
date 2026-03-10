@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Post } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { Public } from '@yikart/aitoearn-auth'
 import { ApiDoc } from '@yikart/common'
@@ -20,7 +20,6 @@ export class WxPlatController {
    * @returns
    */
   @Public()
-  @UseGuards(OrgGuard)
   @ApiDoc({
     summary: 'Handle Authorization Callback',
     body: AuthBackQueryDto.schema,
@@ -43,7 +42,6 @@ export class WxPlatController {
    * @returns
    */
   @Public()
-  @UseGuards(OrgGuard)
   @ApiDoc({
     summary: 'Handle WeChat Message Callback',
   })

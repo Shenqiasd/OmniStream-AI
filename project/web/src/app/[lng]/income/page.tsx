@@ -270,16 +270,10 @@ export default function IncomePage() {
   }
 
   useEffect(() => {
-    if (!token) {
-      toast.error(t('messages.pleaseLoginFirst'))
-      openLoginModal()
-      return
-    }
-
     // 初始加载数据
     fetchIncomeRecords(1, 10)
     fetchWithdrawRecords(1, 10)
-  }, [token])
+  }, [])
 
   // 当筛选条件改变时重新获取数据
   useEffect(() => {

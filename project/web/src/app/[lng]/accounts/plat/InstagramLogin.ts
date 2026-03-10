@@ -14,7 +14,7 @@ export async function instagramSkip(platType: PlatType, spaceId?: string) {
 
   const res: any = await getInstagramAuthUrlApi('pc', spaceId)
   if (res?.code == 1) {
-    useUserStore.getState().logout()
+    useUserStore.getState().clearLoginStatus()
     return
   }
   if (res?.code !== 0)

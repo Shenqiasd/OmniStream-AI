@@ -72,7 +72,7 @@ export function LoginModal({
   onSuccess: propOnSuccess,
   useGlobalStore = false,
 }: ILoginModalProps) {
-  const { setToken, setUserInfo, appInit } = useUserStore()
+  const { setUserInfo, appInit } = useUserStore()
   const { t } = useTransClient('login')
 
   // 全局 store 状态
@@ -135,7 +135,7 @@ export function LoginModal({
 
   // 登录成功后的处理
   const onLoginSuccess = (token: string, userInfo?: any) => {
-    setToken(token)
+    // setToken() // Removed - no auth
     if (userInfo) {
       setUserInfo(userInfo)
     }

@@ -14,7 +14,6 @@ import {
   Post,
   Query,
   Res,
-  UseGuards,
 } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { GetToken, Public, TokenInfo } from '@yikart/aitoearn-auth'
@@ -98,7 +97,6 @@ export class YoutubeController {
 
   // 获取AccessToken,并记录到用户，给平台回调用
   @Public()
-  @UseGuards(OrgGuard)
   @Get('auth/callback')
   async getAccessToken(
     @Query()

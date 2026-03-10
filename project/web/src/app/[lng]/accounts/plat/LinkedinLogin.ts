@@ -13,7 +13,7 @@ export async function linkedinSkip(platType: PlatType, spaceId?: string) {
 
   const res: any = await getLinkedInAuthUrlApi('pc', spaceId)
   if (res?.code == 1) {
-    useUserStore.getState().logout()
+    useUserStore.getState().clearLoginStatus()
     return
   }
   if (res?.code !== 0)

@@ -62,10 +62,6 @@ const {
   ALI_GREEN_ACCESS_KEY_SECRET,
 } = process.env
 
-const {
-  INTERNAL_TOKEN,
-} = process.env
-
 module.exports = {
   port: 7001,
   env: 'production',
@@ -91,6 +87,7 @@ module.exports = {
     host: REDIS_HOST,
     port: Number(REDIS_PORT),
     db: 1,
+    password: process.env.REDIS_PASSWORD || undefined,
   },
   mongodb: {
     uri: `mongodb://${MONGODB_USERNAME}:${encodeURIComponent(MONGODB_PASSWORD)}@${MONGODB_HOST}:${MONGODB_PORT}/?tls=true&tlsCAFile=global-bundle.pem&retryWrites=false`,
@@ -210,6 +207,11 @@ module.exports = {
   },
   server: {
     baseUrl: SERVER_URL,
-    token: INTERNAL_TOKEN,
   },
 }
+
+// AI Services Configuration
+const aiServicesLoader = require('./ai-services-loader');
+aiServicesLoader.enableHotReload();
+
+module.exports.aiServices = aiServicesLoader;

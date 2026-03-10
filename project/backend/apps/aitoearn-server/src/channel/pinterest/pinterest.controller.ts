@@ -14,7 +14,6 @@ import {
   Post,
   Query,
   Res,
-  UseGuards,
 } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { GetToken, Public, TokenInfo } from '@yikart/aitoearn-auth'
@@ -129,7 +128,6 @@ export class PinterestController {
   }
 
   @Public()
-  @UseGuards(OrgGuard)
   @ApiDoc({
     summary: 'Handle Authorization Webhook',
   })

@@ -195,7 +195,7 @@ async function getAuthUrl(
 
     // 检查登录状态
     if (res?.code === 1) {
-      useUserStore.getState().logout()
+      useUserStore.getState().clearLoginStatus()
       return null
     }
 

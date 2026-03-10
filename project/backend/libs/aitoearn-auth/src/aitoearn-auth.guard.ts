@@ -23,51 +23,7 @@ export class AitoearnAuthGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ])
-
-    const request = context.switchToHttp().getRequest()
-    const token = this.extractTokenFromHeader(request)
-    if (!token) {
-      if (isPublic) {
-        return true
-      }
-      throw new UnauthorizedException()
-    }
-
-    if (token === this.config.internalToken) {
-      const isInternal = this.reflector.getAllAndOverride<boolean | undefined>(IS_INTERNAL_KEY, [
-        context.getHandler(),
-        context.getClass(),
-      ])
-      return !!isInternal
-    }
-
-    try {
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: this.secret,
-      })
-      // 以便我们可以在路由处理器中访问它
-      request['user'] = payload
-
-      this.logger.debug({
-        message: 'token验证成功',
-        payload,
-      })
-    }
-    catch (error) {
-      this.logger.debug({
-        message: 'token验证失败',
-        error,
-      })
-
-      if (isPublic)
-        return true
-
-      throw new UnauthorizedException()
-    }
+    // 认证已禁用，直接放行所有请求
     return true
   }
 

@@ -9,7 +9,7 @@ export async function kwaiSkip(platType: PlatType, spaceId?: string): Promise<an
     try {
       const res = await createKwaiAuth('pc', spaceId)
       if (res?.code == 1) {
-        useUserStore.getState().logout()
+        useUserStore.getState().clearLoginStatus()
         reject(new Error('login required'))
         return
       }

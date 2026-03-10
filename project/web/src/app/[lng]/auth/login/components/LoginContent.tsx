@@ -56,7 +56,7 @@ interface RegisterFormData {
 
 export default function LoginContent() {
   const router = useRouter()
-  const { setToken, setUserInfo } = useUserStore()
+  const { setUserInfo } = useUserStore()
   const { t } = useTransClient('login')
 
   // 步骤状态
@@ -112,7 +112,7 @@ export default function LoginContent() {
         }
         else if (response.data.token) {
           // 登录成功
-          setToken(response.data.token)
+          // setToken() // Removed - no auth
           if (response.data.userInfo) {
             setUserInfo(response.data.userInfo)
           }
@@ -146,7 +146,7 @@ export default function LoginContent() {
 
       if (response.code === 0 && response.data.token) {
         // 注册成功
-        setToken(response.data.token)
+        // setToken() // Removed - no auth
         if (response.data.userInfo) {
           setUserInfo(response.data.userInfo)
         }
@@ -178,7 +178,7 @@ export default function LoginContent() {
 
       if (response.code === 0 && response.data.token) {
         // Google 登录成功（无论是新用户还是老用户）
-        setToken(response.data.token)
+        // setToken() // Removed - no auth
         if (response.data.userInfo) {
           setUserInfo(response.data.userInfo)
         }

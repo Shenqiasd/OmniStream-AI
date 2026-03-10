@@ -1,6 +1,6 @@
 /**
- * 登录弹窗全局状态管理
- * 用于在任何地方触发登录弹窗
+ * 登录弹窗全局状态管理（已禁用）
+ * 本地开发无需登录，所有登录相关功能已移除
  */
 
 import { create } from 'zustand'
@@ -23,42 +23,29 @@ export const useLoginModalStore = create<ILoginModalStore>((set, get) => ({
   onSuccessCallback: null,
 
   openLoginModal: (onSuccess?: () => void) => {
-    set({
-      isOpen: true,
-      onSuccessCallback: onSuccess || null,
-    })
+    // 已禁用登录弹窗 - 本地开发无需登录，直接执行回调
+    if (onSuccess) onSuccess()
   },
 
   closeLoginModal: () => {
-    set({
-      isOpen: false,
-      onSuccessCallback: null,
-    })
+    // 无操作
   },
 
   handleLoginSuccess: () => {
-    const { onSuccessCallback } = get()
-    if (onSuccessCallback) {
-      onSuccessCallback()
-    }
-    set({
-      isOpen: false,
-      onSuccessCallback: null,
-    })
+    // 无操作
   },
 }))
 
 /**
- * 便捷方法：打开登录弹窗
- * 可以在非 React 组件中使用
+ * 便捷方法：打开登录弹窗（已禁用，直接执行回调）
  */
 export function openLoginModal(onSuccess?: () => void) {
-  useLoginModalStore.getState().openLoginModal(onSuccess)
+  if (onSuccess) onSuccess()
 }
 
 /**
- * 便捷方法：关闭登录弹窗
+ * 便捷方法：关闭登录弹窗（已禁用）
  */
 export function closeLoginModal() {
-  useLoginModalStore.getState().closeLoginModal()
+  // 无操作
 }

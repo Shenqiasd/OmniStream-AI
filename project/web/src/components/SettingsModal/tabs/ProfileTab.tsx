@@ -29,11 +29,11 @@ export function ProfileTab({ onClose }: ProfileTabProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const { userInfo, getUserInfo, logout } = useUserStore(
+  const { userInfo, getUserInfo, clearLoginStatus } = useUserStore(
     useShallow(state => ({
       userInfo: state.userInfo,
       getUserInfo: state.getUserInfo,
-      logout: state.logout,
+      clearLoginStatus: state.clearLoginStatus,
     })),
   )
 
@@ -144,7 +144,7 @@ export function ProfileTab({ onClose }: ProfileTabProps) {
   }
 
   const handleLogout = () => {
-    logout()
+    clearLoginStatus()
     toast.success(tCommon('logout'))
     onClose()
   }

@@ -14,7 +14,7 @@ export async function threadsSkip(platType: PlatType, spaceId?: string) {
 
   const res: any = await getThreadsAuthUrlApi('pc', spaceId)
   if (res?.code == 1) {
-    useUserStore.getState().logout()
+    useUserStore.getState().clearLoginStatus()
     return
   }
 

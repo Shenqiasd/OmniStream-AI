@@ -204,14 +204,12 @@ export async function aiChatStream(data: {
   top_p?: number
   max_tokens?: number
 }) {
-  const token = useUserStore.getState().token
   const lang = useUserStore.getState().lang
 
   const response = await fetch('https://aitoearn.ai/api/ai/chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
       'Accept-Language': lang || 'zh-CN',
     },
     body: JSON.stringify({
