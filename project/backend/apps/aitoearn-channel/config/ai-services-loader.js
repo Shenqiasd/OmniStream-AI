@@ -1,8 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const { Logger } = require('@nestjs/common');
 
 class AIServicesLoader {
   constructor() {
+    this.logger = new Logger('AiServicesLoader');
     this.configPath = path.join(__dirname, 'ai-services.json');
     this.config = null;
     this.watcher = null;
@@ -34,7 +36,7 @@ class AIServicesLoader {
       try {
         this.load();
       } catch (err) {
-        console.error('Failed to reload ai-services.json:', err);
+        this.logger.error('Failed to reload ai-services.json:', err);
       }
     });
   }
