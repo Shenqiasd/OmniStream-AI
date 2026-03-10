@@ -1,0 +1,36 @@
+[
+  {
+    "timestamp": "2026-03-10T09:24:24.288Z",
+    "experiments": [
+      {
+        "trigger": "后续任务可能涉及新的认证方案或服务间通信机制",
+        "observation": "当前项目已完全移除认证，但保留了 @Public/@Internal 装饰器，暗示未来可能需要新的访问控制",
+        "action": "在 CLAUDE.md 中补充「认证移除后的访问控制策略」章节，记录 @Public/@Internal 装饰器的用途和未来扩展方向",
+        "expected": "降低后续认证相关任务的理解成本，加快决策速度",
+        "target": "claude-md",
+        "applied": true,
+        "snapshotBefore": "{}"
+      },
+      {
+        "trigger": "AI 服务配置系统采用 fs.watch 热加载，可能存在文件监听边界情况",
+        "observation": "任务 003 采用单例模式 + fs.watch，但未记录已知的监听限制或故障排查方法",
+        "action": "在 CLAUDE.md 中补充「AI 服务配置热加载的已知问题」，包括文件系统事件延迟、重复触发、跨平台差异等",
+        "expected": "当配置热加载出现异常时，能快速定位问题根源",
+        "target": "claude-md",
+        "applied": true,
+        "snapshotBefore": "{}"
+      },
+      {
+        "trigger": "MongoDB 初始化脚本支持幂等运行，但未来可能需要数据迁移或版本升级",
+        "observation": "任务 007 创建了初始化脚本，但未记录数据库版本管理策略或迁移流程",
+        "action": "在 CLAUDE.md 中补充「数据库版本管理和迁移策略」���定义何时创建新脚本、如何处理存量数据",
+        "expected": "未来数据库升级或结构调整时有明确的操作规范",
+        "target": "claude-md",
+        "applied": true,
+        "snapshotBefore": "{}"
+      }
+    ],
+    "status": "completed",
+    "snapshotFile": "/Users/pete/Project/AiToEarn/.flowpilot/evolution/snapshot-2026-03-10T09-24-24-288Z.json"
+  }
+]

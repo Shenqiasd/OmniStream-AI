@@ -1,0 +1,275 @@
+[
+  {
+    "content": "项目使用 MongoDB + Redis 作为数据存储",
+    "source": "tech-stack",
+    "timestamp": "2026-03-10T08:06:00.058Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "AI 服务集成多个提供商：OpenAI、Kling、Volcengine",
+    "source": "tech-stack",
+    "timestamp": "2026-03-10T08:06:00.064Z",
+    "refs": 8,
+    "archived": false
+  },
+  {
+    "content": "移除 config.js 中的 INTERNAL_TOKEN 和 config.ts 中的 auth 配置",
+    "source": "decision",
+    "timestamp": "2026-03-10T08:06:00.069Z",
+    "refs": 9,
+    "archived": false
+  },
+  {
+    "content": "保留数据库、Redis、AI、第三方平台 OAuth 等核心配置",
+    "source": "architecture",
+    "timestamp": "2026-03-10T08:06:00.073Z",
+    "refs": 5,
+    "archived": false
+  },
+  {
+    "content": "移除内部认证 token 和 auth 模块依赖以简化本地部署配置复杂度",
+    "source": "insight",
+    "timestamp": "2026-03-10T08:06:00.076Z",
+    "refs": 3,
+    "archived": false
+  },
+  {
+    "content": "所有认证 Guard 逻辑已移除，JWT/SK-Key 认证已禁用，所有 @UseGuards 装饰器已移除，保留 @Public/@Internal 装饰器作为标记",
+    "source": "decision",
+    "timestamp": "2026-03-10T08:16:09.636Z",
+    "refs": 4,
+    "archived": false
+  },
+  {
+    "content": "选择禁用而非删除 Guard 文件，保持代码结构完整便于后续恢复",
+    "source": "decision",
+    "timestamp": "2026-03-10T08:16:09.643Z",
+    "refs": 4,
+    "archived": false
+  },
+  {
+    "content": "项目使用 NestJS 框架，认证通过 Guard 实现，已全部禁用直接返回 true",
+    "source": "tech-stack",
+    "timestamp": "2026-03-10T08:16:09.647Z",
+    "refs": 3,
+    "archived": false
+  },
+  {
+    "content": "原认证层级架构：AitoearnAuthGuard(JWT) + SkKeyAuthGuard(SK-Key) + OrgGuard(响应格式标记)，现已全部移除使用",
+    "source": "architecture",
+    "timestamp": "2026-03-10T08:16:09.651Z",
+    "refs": 1,
+    "archived": false
+  },
+  {
+    "content": "具体的事实、决策或技术洞察",
+    "source": "decision|architecture|tech-stack|insight",
+    "timestamp": "2026-03-10T08:18:40.093Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "使用 fs.watch 监听配置文件变化，实现配置热加载",
+    "source": "tech-stack",
+    "timestamp": "2026-03-10T08:18:55.297Z",
+    "refs": 2,
+    "archived": false
+  },
+  {
+    "content": "采用单例模式管理配置加载器，支持环境变量替换",
+    "source": "architecture",
+    "timestamp": "2026-03-10T08:18:55.305Z",
+    "refs": 3,
+    "archived": false
+  },
+  {
+    "content": "AIServicesLoader 提供 getServices/getService 接口，config.js 导出 aiServices 实例",
+    "source": "architecture",
+    "timestamp": "2026-03-10T08:18:55.310Z",
+    "refs": 1,
+    "archived": false
+  },
+  {
+    "content": "AI 服务配置系统需要支持热加载和动态注册功能",
+    "source": "decision",
+    "timestamp": "2026-03-10T08:18:55.315Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "aitoearn-server-client 服务间通信已从有认证模式简化为无认证模式，不再需要 token 配置",
+    "source": "decision",
+    "timestamp": "2026-03-10T08:19:34.394Z",
+    "refs": 2,
+    "archived": false
+  },
+  {
+    "content": "移除了服务间通信中的 Authorization 头和 token 字段，采用最小化配置方案",
+    "source": "architecture",
+    "timestamp": "2026-03-10T08:19:34.406Z",
+    "refs": 1,
+    "archived": false
+  },
+  {
+    "content": "内部服务通信简化为无认证模式可以降低配置复杂度，适用于受信任的内网环境",
+    "source": "insight",
+    "timestamp": "2026-03-10T08:19:34.412Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "所有认证接口已删除（登录、注册、密码重置、Google登录），仅保留用户信息查询接口用于频道管理",
+    "source": "decision",
+    "timestamp": "2026-03-10T08:19:52.669Z",
+    "refs": 1,
+    "archived": false
+  },
+  {
+    "content": "删除了 LoginController、LoginService 和 login.dto，从 UserModule 中移除相关注册，保留 UserController 等查询接口",
+    "source": "architecture",
+    "timestamp": "2026-03-10T08:19:52.681Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "Docker Compose 配置包含 MongoDB 7 和 Redis 7-alpine 镜像，使用 mongodb_data 和 redis_data 数据卷实现持久化",
+    "source": "tech-stack",
+    "timestamp": "2026-03-10T08:53:12.738Z",
+    "refs": 2,
+    "archived": false
+  },
+  {
+    "content": "Docker Compose 配置仅保留基础服务（MongoDB + Redis），移除应用服务以便独立部署",
+    "source": "decision",
+    "timestamp": "2026-03-10T08:53:12.751Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "Redis 配置启用密码认证以增强安全性",
+    "source": "architecture",
+    "timestamp": "2026-03-10T08:53:12.757Z",
+    "refs": 1,
+    "archived": false
+  },
+  {
+    "content": "Docker Compose 提供数据持久化和网络隔离",
+    "source": "architecture",
+    "timestamp": "2026-03-10T08:53:12.762Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "项目已完全移除认证机制，所有 API 请求无需 Authorization header",
+    "source": "decision",
+    "timestamp": "2026-03-10T08:58:54.068Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "简化错误处理，移除 401 跳转登录逻辑，统一使用通用错误提示",
+    "source": "decision",
+    "timestamp": "2026-03-10T08:58:54.082Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "已移除 API 配置中的认证逻辑",
+    "source": "architecture",
+    "timestamp": "2026-03-10T08:58:54.086Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "项目使用 MongoDB 存储 21 个集合，关键索引包括 user.mail、account.type+uid 唯一约束、publishTask.publishTime",
+    "source": "tech-stack",
+    "timestamp": "2026-03-10T09:06:58.327Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "选择 Node.js 脚本而非 Shell 实现 MongoDB 初始化，便于跨平台兼容性和错误处理",
+    "source": "decision",
+    "timestamp": "2026-03-10T09:06:58.349Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "初始化脚本采用幂等设计，避免重复运行导致的问题",
+    "source": "architecture",
+    "timestamp": "2026-03-10T09:06:58.356Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "初始化脚本独立于应用代码，通过环境变量配置 MongoDB 连接参数，支持本地和 Docker 环境",
+    "source": "architecture",
+    "timestamp": "2026-03-10T09:06:58.361Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "创建了本地部署文档 README-LOCAL.md，包含环境配置、Docker 启动、AI 服务配置、数据库初始化的完整流程",
+    "source": "decision",
+    "timestamp": "2026-03-10T09:12:57.010Z",
+    "refs": 2,
+    "archived": false
+  },
+  {
+    "content": "部署文档采用快速启动优先的结构，从简单到复杂逐步引导用户完成部署",
+    "source": "architecture",
+    "timestamp": "2026-03-10T09:12:57.033Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": ".env.example 中使用占位符密钥而非真实密钥，确保配置模板的安全性",
+    "source": "decision",
+    "timestamp": "2026-03-10T09:28:18.338Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "AI 服务配置已添加到 .env.example 文件中作为参考示例",
+    "source": "architecture",
+    "timestamp": "2026-03-10T09:28:18.354Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "在 ai-services-loader.js 中使用 Logger(\"AiServicesLoader\") 上下文记录配置重载错误，替换 console.error",
+    "source": "decision",
+    "timestamp": "2026-03-10T09:29:48.846Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "采用 NestJS 标准 Logger 以统一日志格式并支持日志级别控制",
+    "source": "architecture",
+    "timestamp": "2026-03-10T09:29:48.861Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "删除了 auth/login、auth/forgot-password 目录及相关组件（LoginModal、GlobalLoginModal）和 loginModal.ts store",
+    "source": "decision",
+    "timestamp": "2026-03-10T09:36:22.309Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "清理了 8 个文件中的 openLoginModal 引用",
+    "source": "decision",
+    "timestamp": "2026-03-10T09:36:22.332Z",
+    "refs": 0,
+    "archived": false
+  },
+  {
+    "content": "保留 handleLogin 函数框架供后续实现新登录逻辑",
+    "source": "decision",
+    "timestamp": "2026-03-10T09:36:22.339Z",
+    "refs": 0,
+    "archived": false
+  }
+]

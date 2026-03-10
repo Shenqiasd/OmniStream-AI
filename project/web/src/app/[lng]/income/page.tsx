@@ -27,7 +27,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import WalletAccountSelect from '@/components/WalletAccountSelect'
 import WalletModal from '@/components/WalletModal'
 import { toast } from '@/lib/toast'
-import { openLoginModal } from '@/store/loginModal'
 import { useUserStore } from '@/store/user'
 import styles from './income.module.scss'
 

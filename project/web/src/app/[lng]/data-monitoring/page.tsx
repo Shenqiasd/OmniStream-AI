@@ -13,7 +13,6 @@ import {
 import { AccountPlatInfoMap, PlatType } from '@/app/config/platConfig'
 import { useTransClient } from '@/app/i18n/client'
 import { toast } from '@/lib/toast'
-import { openLoginModal } from '@/store/loginModal'
 import { urlReg } from '@/utils/regulars'
 import http from '@/utils/request'
 import styles from './dataMonitoring.module.scss'

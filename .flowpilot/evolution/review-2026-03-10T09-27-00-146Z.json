@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-03-10T09:27:00.145Z",
+  "checks": [
+    {
+      "name": "metrics",
+      "passed": true,
+      "detail": "历史不足两轮，跳过对比"
+    },
+    {
+      "name": "config.json",
+      "passed": true,
+      "detail": "合法 JSON"
+    },
+    {
+      "name": "experiments.json",
+      "passed": true,
+      "detail": "可解析"
+    }
+  ],
+  "rolledBack": false
+}

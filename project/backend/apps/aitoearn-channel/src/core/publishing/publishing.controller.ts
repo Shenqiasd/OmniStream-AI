@@ -1,4 +1,4 @@
-import { Body, Controller, Logger, Post } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Logger, Param, Post } from '@nestjs/common'
 import { AppException, ResponseCode } from '@yikart/common'
 import { PublishStatus } from '../../libs/database/schema/publishTask.schema'
 import {
@@ -24,6 +24,11 @@ export class PublishingController {
     return await this.publishingService.createPublishingTask(data)
   }
 
+  @Post('plat/publish/createRecord')
+  async createPublishRecord(@Body() data: CreatePublishDto) {
+    return await this.publishingService.createPublishingTask(data)
+  }
+
   @Post('plat/publish/update')
   async updatePublishingTask(@Body() data: UpdatePublishTaskDto) {
     return await this.publishingService.updatePublishingTask(data)
@@ -31,6 +36,17 @@ export class PublishingController {
 
   @Post('plat/publish/changeTime')
   async changeTaskTime(@Body() data: UpPublishTaskTimeDto) {
+    data.publishTime = new Date(data.publishTime)
+    const res = await this.publishingService.updatePublishTaskTime(
+      data.id,
+      data.publishTime,
+      data.userId,
+    )
+    return res
+  }
+
+  @Post('plat/publish/updateTaskTime')
+  async updateTaskTime(@Body() data: UpPublishTaskTimeDto) {
     data.publishTime = new Date(data.publishTime)
     const res = await this.publishingService.updatePublishTaskTime(
       data.id,
@@ -48,9 +64,30 @@ export class PublishingController {
     )
   }
 
+  @Delete('plat/publish/delete/:id')
+  async deletePublishRecord(@Param('id') id: string, @Body() data: { userId?: string }) {
+    return await this.publishingService.deletePublishTaskById(id, data.userId)
+  }
+
   @Post('publish/task/run')
   async nowPubTask(@Body() data: NowPubTaskDto) {
     const info = await this.publishingService.getPublishTaskInfo(data.id)
+    if (!info)
+      throw new AppException(ResponseCode.PublishTaskNotFound)
+    if (info.status === PublishStatus.PUBLISHING) {
+      throw new AppException(ResponseCode.PublishTaskAlreadyPublishing)
+    }
+    if (info.status === PublishStatus.PUBLISHED) {
+      throw new AppException(ResponseCode.PublishTaskAlreadyCompleted)
+    }
+    await this.publishingService.enqueuePublishingTask(info)
+
+    return PublishStatus.PUBLISHING
+  }
+
+  @Post('plat/publish/nowPubTask/:id')
+  async nowPublishTask(@Param('id') id: string) {
+    const info = await this.publishingService.getPublishTaskInfo(id)
     if (!info)
       throw new AppException(ResponseCode.PublishTaskNotFound)
     if (info.status === PublishStatus.PUBLISHING) {
@@ -78,6 +115,18 @@ export class PublishingController {
     return { status: 'success', message: 'Webhook processed' }
   }
 
+  @Post('plat/publish/posts')
+  async getPublishPosts(@Body() data: PublishRecordListFilterDto) {
+    const res = await this.publishingService.getPublishTasks(data)
+    return res
+  }
+
+  @Post('plat/publish/statuses/queued/posts')
+  async getQueuedPosts(@Body() data: PublishRecordListFilterDto) {
+    const res = await this.publishingService.getQueuedPublishTasks(data)
+    return res
+  }
+
   @Post('channel/publishTask/list')
   async getPublishTaskList(@Body() data: PublishRecordListFilterDto) {
     const res = await this.publishingService.getPublishTasks(data)
@@ -99,6 +148,12 @@ export class PublishingController {
   @Post('channel/publishTask/detail')
   async getPublishingTaskDetail(@Body() data: { flowId: string, userId: string }) {
     const res = await this.publishingService.getPublishTaskInfoWithFlowId(data.flowId, data.userId)
+    return res
+  }
+
+  @Get('plat/publish/records/:flowId')
+  async getPublishRecordDetail(@Param('flowId') flowId: string) {
+    const res = await this.publishingService.getPublishTaskInfoWithFlowId(flowId, undefined)
     return res
   }
 

@@ -16,7 +16,6 @@ import SettingsModal from '@/components/SettingsModal'
 import { useSettingsModalStore } from '@/components/SettingsModal/store'
 import { useNotification } from '@/hooks/useNotification'
 import { cn } from '@/lib/utils'
-import { openLoginModal } from '@/store/loginModal'
 import { useUserStore } from '@/store/user'
 import {
   BottomSection,
@@ -72,9 +71,9 @@ function LayoutSidebar() {
     return null
   }
 
-  // 处理登录弹窗
+  // 处理登录 - 功能已移除
   const handleLogin = () => {
-    openLoginModal()
+    // TODO: 实现新的登录逻辑
   }
 
   // 打开设置弹框

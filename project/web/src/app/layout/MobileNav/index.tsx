@@ -44,7 +44,6 @@ import { CONTACT } from '@/constant'
 import { useNotification } from '@/hooks/useNotification'
 import { useGetClientLng } from '@/hooks/useSystem'
 import { cn } from '@/lib/utils'
-import { openLoginModal } from '@/store/loginModal'
 import { useUserStore } from '@/store/user'
 import { getOssUrl } from '@/utils/oss'
 
@@ -237,7 +236,7 @@ function MobileUserSection({
 
   const handleLogin = () => {
     onClose()
-    openLoginModal()
+    // TODO: 实现新的登录逻辑
   }
 
   if (token && userInfo) {

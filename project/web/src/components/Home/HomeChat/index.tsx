@@ -19,7 +19,6 @@ import { useMediaUpload } from '@/hooks/useMediaUpload'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import { useAgentStore } from '@/store/agent'
-import { openLoginModal } from '@/store/loginModal'
 import { useUserStore } from '@/store/user'
 
 export interface IHomeChatProps {

@@ -16,7 +16,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
-import { openLoginModal } from '@/store/loginModal'
 import { useUserStore } from '@/store/user'
 
 interface PricingContentProps {
