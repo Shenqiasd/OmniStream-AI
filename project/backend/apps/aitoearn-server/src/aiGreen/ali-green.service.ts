@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { TokenInfo } from '@yikart/aitoearn-auth'
 import { AliGreenApiService } from '@yikart/ali-green'
 import * as _ from 'lodash'
+import { config } from '../config'
 import { UserService } from '../user/user.service'
 import { ImageBodyDto, TextBodyDto, VideoBodyDto, VideoResultBodyDto } from './dto/ali-green.dto'
 
@@ -13,11 +14,13 @@ export class AliGreenService {
 
   ) {}
 
-  async AuthVip(token: TokenInfo) {
-    const { id } = token
-    const user = await this.userService.getUserInfoById(id)
-    if (_.isEmpty(user) || _.isEmpty(user.vipInfo))
-      throw new UnauthorizedException('这是会员限定功能，请开通会员使用')
+  private isLocalMode() {
+    return ['development', 'local'].includes(config.environment)
+  }
+
+  // VIP 验证已移除，始终允许访问
+  async AuthVip(_token: TokenInfo) {
+    return
   }
 
   async textGreen(data: TextBodyDto, token: TokenInfo) {

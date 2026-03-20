@@ -2,19 +2,25 @@ import { BaseMessage, ChatMessage } from '@langchain/core/messages'
 import { OpenAIClient } from '@langchain/openai'
 import { Injectable, Logger } from '@nestjs/common'
 import { AppException, ResponseCode, UserType } from '@yikart/common'
-import { AiLogChannel, AiLogRepository, AiLogStatus, AiLogType } from '@yikart/mongodb'
+import { AiLogChannel, AiLogRepository, AiLogStatus, AiLogType, AiProviderSettingRepository } from '@yikart/mongodb'
 import { BigNumber } from 'bignumber.js'
 import dayjs from 'dayjs'
 import _ from 'lodash'
+import { config } from '../../config'
 import { PointsService } from '../../user/points.service'
 import { UserService } from '../../user/user.service'
 import { OpenaiService } from '../libs/openai'
 import { ModelsConfigService } from '../models-config'
+import { ProviderClientFactory } from '../provider-settings/provider-client.factory'
 import { ChatCompletionDto, ChatModelsQueryDto, UserChatCompletionDto } from './chat.dto'
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name)
+
+  private shouldSkipBusinessGates(userType: UserType) {
+    return userType === UserType.User
+  }
 
   constructor(
     private readonly userService: UserService,
@@ -22,19 +28,26 @@ export class ChatService {
     private readonly pointsService: PointsService,
     private readonly aiLogRepo: AiLogRepository,
     private readonly modelsConfigService: ModelsConfigService,
+    private readonly aiProviderSettingRepository: AiProviderSettingRepository,
   ) {}
 
-  async chatCompletion(request: ChatCompletionDto) {
-    const { messages, model, ...params } = request
+  async chatCompletion(request: ChatCompletionDto & { userId?: string }) {
+    const { messages, model, userId, ...params } = request
+    const providerSetting = ProviderClientFactory.assertProviderType(
+      await ProviderClientFactory.resolveEnabledProvider(this.aiProviderSettingRepository, 'text', userId),
+      'text',
+      ['openai-compatible'],
+    )
 
     const langchainMessages: BaseMessage[] = messages.map((message) => {
       return new ChatMessage(message)
     })
 
     const result = await this.openaiService.createChatCompletion({
-      model,
+      model: ProviderClientFactory.getResolvedModel(providerSetting, model),
       messages: langchainMessages,
       ...params,
+      ...ProviderClientFactory.getOpenAIOverrides(providerSetting),
       modalities: params.modalities as OpenAIClient.Chat.ChatCompletionModality[],
     })
 
@@ -44,7 +57,7 @@ export class ChatService {
     }
 
     return {
-      model,
+      model: ProviderClientFactory.getResolvedModel(providerSetting, model),
       usage,
       ...result,
     }
@@ -78,7 +91,7 @@ export class ChatService {
       throw new AppException(ResponseCode.InvalidModel)
     }
     const pricing = modelConfig.pricing
-    if (userType === UserType.User) {
+    if (userType === UserType.User && !this.shouldSkipBusinessGates(userType)) {
       const balance = await this.pointsService.getBalance(userId)
       if (balance < 0) {
         throw new AppException(ResponseCode.UserPointsInsufficient)
@@ -93,7 +106,7 @@ export class ChatService {
 
     const startedAt = new Date()
 
-    const result = await this.chatCompletion(params)
+    const result = await this.chatCompletion({ ...params, userId })
 
     const duration = Date.now() - startedAt.getTime()
 
@@ -108,17 +121,19 @@ export class ChatService {
       const completion = new BigNumber(usage.output_tokens).div('1000').times(pricing.completion)
       points = prompt.plus(completion).toNumber()
     }
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : points
 
     this.logger.debug({
       points,
+      billedPoints,
       usage,
       modelConfig,
     })
 
-    if (userType === UserType.User) {
+    if (userType === UserType.User && !this.shouldSkipBusinessGates(userType)) {
       await this.deductUserPoints(
         userId,
-        points,
+        billedPoints,
         modelConfig.name,
         usage,
       )
@@ -132,7 +147,7 @@ export class ChatService {
       startedAt,
       duration,
       type: AiLogType.Chat,
-      points,
+      points: billedPoints,
       request: params,
       response: result,
       status: AiLogStatus.Success,
@@ -142,7 +157,7 @@ export class ChatService {
       ...result,
       usage: {
         ...usage,
-        points,
+        points: billedPoints,
       },
     }
   }
@@ -152,25 +167,39 @@ export class ChatService {
    * @param data 查询参数，包含可选的 userId 和 userType，可用于后续个性化模型推荐
    */
   async getChatModelConfig(data: ChatModelsQueryDto) {
+    const baseModels = _.cloneDeep(this.modelsConfigService.config.chat)
+
     if (data.userType === UserType.User && data.userId) {
       try {
-        const user = await this.userService.getUserInfoById(data.userId)
-        if (user && user.vipInfo && dayjs(user.vipInfo.expireTime).isAfter(dayjs())) {
-          const models = _.cloneDeep(this.modelsConfigService.config.chat)
-          // 将所有标记为 freeForVip 的模型价格设为 0
-          models.forEach((model) => {
-            if (model.freeForVip) {
-              model.pricing = { price: '0' }
-            }
+        const providerSetting = await ProviderClientFactory.resolveEnabledProvider(
+          this.aiProviderSettingRepository,
+          'text',
+          data.userId,
+        )
+        if (providerSetting?.model && !baseModels.find(model => model.name === providerSetting.model)) {
+          baseModels.unshift({
+            name: providerSetting.model,
+            description: providerSetting.label || providerSetting.model,
+            summary: 'User configured text model',
+            tags: ['custom', 'user'],
+            inputModalities: ['text'],
+            outputModalities: ['text'],
+            pricing: { price: '0' },
           })
-          return models
         }
+
+        // VIP 验证已移除：所有 freeForVip 模型始终免费
+        baseModels.forEach((model) => {
+          if (model.freeForVip) {
+            model.pricing = { price: '0' }
+          }
+        })
       }
       catch (error) {
         this.logger.warn({ error })
       }
     }
 
-    return this.modelsConfigService.config.chat
+    return baseModels
   }
 }

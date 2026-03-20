@@ -6,6 +6,7 @@ import { RedisService } from '@yikart/redis'
 import axios from 'axios'
 import dayjs from 'dayjs'
 import { google } from 'googleapis'
+import { config } from '../config'
 import { NewUser, UserCreateType } from './class/user.class'
 import { UpdateUserInfoDto } from './dto/user.dto'
 import { PointsService } from './points.service'
@@ -15,6 +16,10 @@ import { VipService } from './vip.service'
 export class UserService {
   logger = new Logger(UserService.name)
   private oauth2Client: any
+
+  private isLocalMode() {
+    return ['development', 'local'].includes(config.environment)
+  }
 
   constructor(
     private readonly queueService: QueueService,
@@ -218,17 +223,11 @@ export class UserService {
     return newUserInfo
   }
 
-  // Check user VIP rights
+  // Check user VIP rights — VIP 验证已移除，始终返回用户信息
   async checkUserVipRights(userId: string): Promise<User> {
     const userInfo = await this.getUserInfoById(userId)
     if (userInfo.status !== UserStatus.OPEN)
       throw new AppException(ResponseCode.UserBanned)
-    if (
-      !userInfo.vipInfo
-      || dayjs(userInfo.vipInfo.expireTime).valueOf() < Date.now()
-    ) {
-      throw new AppException(ResponseCode.UserMembershipExpired)
-    }
     return userInfo
   }
 

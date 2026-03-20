@@ -1,12 +1,12 @@
 import path from 'node:path'
 import { BadRequestException, Injectable, Logger } from '@nestjs/common'
-import { S3Service } from '@yikart/aws-s3'
 import { AppException, ResponseCode, UserType } from '@yikart/common'
-import { AiLog, AiLogChannel, AiLogRepository, AiLogStatus, AiLogType } from '@yikart/mongodb'
+import { AiLog, AiLogChannel, AiLogRepository, AiLogStatus, AiLogType, AiProviderSetting, AiProviderSettingRepository } from '@yikart/mongodb'
 import dayjs from 'dayjs'
 import _ from 'lodash'
 import { DashscopeAction, KlingAction, TaskStatus } from '../../common/enums'
 import { config } from '../../config'
+import { LocalMediaService } from '../../file/storage/local-media.service'
 import { PointsService } from '../../user/points.service'
 import { UserService } from '../../user/user.service'
 import { DashscopeService, TaskStatus as DashscopeTaskStatus, GetVideoTaskResponse } from '../libs/dashscope'
@@ -56,10 +56,58 @@ import {
   VideoGenerationModelsQueryDto,
   VolcengineCallbackDto,
 } from './video.dto'
+import { ProviderClientFactory } from '../provider-settings/provider-client.factory'
 
 @Injectable()
 export class VideoService {
   private readonly logger = new Logger(VideoService.name)
+
+  private shouldSkipBusinessGates(userType: UserType) {
+    return userType === UserType.User
+  }
+
+  private async chargeUserPointsIfNeeded(userId: string, userType: UserType, pricing: number, description: string) {
+    if (pricing <= 0 || userType !== UserType.User || this.shouldSkipBusinessGates(userType)) {
+      return
+    }
+
+    const balance = await this.pointsService.getBalance(userId)
+    if (balance < pricing) {
+      throw new AppException(ResponseCode.UserPointsInsufficient)
+    }
+
+    await this.pointsService.deductPoints({
+      userId,
+      amount: pricing,
+      type: 'ai_service',
+      description,
+    })
+  }
+
+  private async ensureUserCanAffordIfNeeded(userId: string, userType: UserType, pricing: number) {
+    if (pricing <= 0 || userType !== UserType.User || this.shouldSkipBusinessGates(userType)) {
+      return
+    }
+
+    const balance = await this.pointsService.getBalance(userId)
+    if (balance < pricing) {
+      throw new AppException(ResponseCode.UserPointsInsufficient)
+    }
+  }
+
+  private async refundUserPointsIfNeeded(aiLog: AiLog) {
+    if (aiLog.userType !== UserType.User || this.shouldSkipBusinessGates(aiLog.userType)) {
+      return
+    }
+
+    await this.pointsService.addPoints({
+      userId: aiLog.userId,
+      amount: aiLog.points,
+      type: 'ai_service',
+      description: aiLog.model,
+    })
+  }
+
   constructor(
     private readonly userService: UserService,
     private readonly dashscopeService: DashscopeService,
@@ -67,9 +115,10 @@ export class VideoService {
     private readonly volcengineService: VolcengineService,
     private readonly sora2Service: Sora2Service,
     private readonly aiLogRepo: AiLogRepository,
-    private readonly s3Service: S3Service,
+    private readonly mediaStorageService: LocalMediaService,
     private readonly modelsConfigService: ModelsConfigService,
     private readonly pointsService: PointsService,
+    private readonly aiProviderSettingRepository: AiProviderSettingRepository,
   ) { }
 
   async calculateVideoGenerationPrice(params: {
@@ -120,6 +169,11 @@ export class VideoService {
    * 用户视频生成（通用接口）
    */
   async userVideoGeneration(request: UserVideoGenerationRequestDto) {
+    const providerSetting = await ProviderClientFactory.resolveEnabledProvider(this.aiProviderSettingRepository, 'video', request.userId)
+    if (providerSetting) {
+      return await this.userVideoGenerationWithProvider(request, providerSetting)
+    }
+
     const { model } = request
 
     // 查找模型配置以确定channel
@@ -149,6 +203,187 @@ export class VideoService {
       default:
         throw new AppException(ResponseCode.InvalidModel)
     }
+  }
+
+  private async userVideoGenerationWithProvider(
+    request: UserVideoGenerationRequestDto,
+    providerSetting: AiProviderSetting,
+  ) {
+    const createTaskResponse = (taskId: string) => ({
+      task_id: taskId,
+      status: TaskStatus.Submitted,
+      message: '',
+    })
+
+    switch (providerSetting.providerType) {
+      case 'libtv':
+        return await this.createDynamicVideoTask(request, providerSetting, AiLogChannel.NewApi, createTaskResponse)
+      case 'openai-sora':
+        return await this.createDynamicVideoTask(request, providerSetting, AiLogChannel.NewApi, createTaskResponse)
+      case 'custom-video-api':
+        return await this.createDynamicVideoTask(request, providerSetting, AiLogChannel.NewApi, createTaskResponse)
+      case 'seedance-compatible':
+        return await this.createDynamicVideoTask(request, providerSetting, AiLogChannel.NewApi, createTaskResponse)
+      case 'kling':
+        return await this.createDynamicVideoTask(request, providerSetting, AiLogChannel.NewApi, createTaskResponse)
+      default:
+        throw new AppException(ResponseCode.InvalidModel)
+    }
+  }
+
+  private async createDynamicVideoTask<T>(
+    request: UserVideoGenerationRequestDto,
+    providerSetting: AiProviderSetting,
+    channel: AiLogChannel,
+    createTaskResponse: (taskId: string) => T,
+  ) {
+    const { userId, userType, image, prompt, image_tail, duration, size, mode } = request
+    const resolvedModel = ProviderClientFactory.getResolvedModel(providerSetting, request.model)
+    const pricing = await this.calculateVideoGenerationPrice({
+      userId,
+      userType,
+      model: resolvedModel,
+      duration,
+      resolution: size,
+      mode,
+    }).catch(() => 0)
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
+
+    await this.ensureUserCanAffordIfNeeded(userId, userType, billedPoints)
+
+    const startedAt = new Date()
+    const modeKey = Array.isArray(image) ? 'multi-image' : image ? 'image' : 'text'
+    const url = ProviderClientFactory.getVideoCreateUrl(providerSetting, modeKey)
+    const payload = ProviderClientFactory.buildVideoCreatePayload(providerSetting, {
+      model: resolvedModel,
+      prompt,
+      image,
+      image_tail,
+      size,
+      duration,
+      mode,
+      metadata: request.metadata,
+    })
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: ProviderClientFactory.getVideoHeaders(providerSetting),
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(providerSetting.timeoutMs ?? 300000),
+    })
+
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new AppException(ResponseCode.AiCallFailed, body?.errorMessage ?? body?.message ?? `Video provider call failed: ${response.status}`)
+    }
+
+    const providerTaskId = ProviderClientFactory.extractTaskId(body)
+    if (!providerTaskId) {
+      throw new AppException(ResponseCode.AiCallFailed, 'Video provider did not return a task id')
+    }
+
+    const aiLog = await this.aiLogRepo.create({
+      userId,
+      userType,
+      taskId: providerTaskId,
+      model: resolvedModel,
+      channel,
+      action: providerSetting.providerType,
+      startedAt,
+      type: AiLogType.Video,
+      points: billedPoints,
+      request: {
+        ...payload as Record<string, unknown>,
+        providerType: providerSetting.providerType,
+        providerMode: modeKey,
+      },
+      response: body,
+      status: AiLogStatus.Generating,
+    })
+
+    await this.chargeUserPointsIfNeeded(userId, userType, billedPoints, resolvedModel)
+
+    return createTaskResponse(aiLog.id)
+  }
+
+  private getDynamicProviderMode(aiLog: AiLog): 'text' | 'image' | 'multi-image' {
+    const providerMode = (aiLog.request as any)?.providerMode
+    if (providerMode === 'image' || providerMode === 'multi-image') {
+      return providerMode
+    }
+    return 'text'
+  }
+
+  private async pollDynamicVideoTask(aiLog: AiLog): Promise<AiLog> {
+    if (aiLog.channel !== AiLogChannel.NewApi || aiLog.status !== AiLogStatus.Generating || !aiLog.taskId) {
+      return aiLog
+    }
+
+    const providerSetting = await ProviderClientFactory.resolveEnabledProvider(this.aiProviderSettingRepository, 'video', aiLog.userId)
+    if (!providerSetting) {
+      return aiLog
+    }
+
+    const url = ProviderClientFactory.getVideoStatusUrl(providerSetting, aiLog.taskId, this.getDynamicProviderMode(aiLog))
+    let responseBody: any = aiLog.response ?? {}
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: ProviderClientFactory.getVideoHeaders(providerSetting),
+        signal: AbortSignal.timeout(providerSetting.timeoutMs ?? 300000),
+      })
+
+      responseBody = await response.json().catch(() => responseBody)
+      if (!response.ok) {
+        return aiLog
+      }
+    }
+    catch {
+      return aiLog
+    }
+
+    const genericStatus = ProviderClientFactory.mapGenericVideoTaskStatus(responseBody)
+    if (!['success', 'failure'].includes(genericStatus)) {
+      return aiLog
+    }
+
+    const mappedStatus = genericStatus === 'success' ? AiLogStatus.Success : AiLogStatus.Failed
+    const normalizedResult = ProviderClientFactory.normalizeGenericVideoResult(responseBody)
+    const updatedResponse = {
+      ...responseBody,
+      ...normalizedResult,
+    }
+
+    if (mappedStatus === AiLogStatus.Success && normalizedResult.data.video_url) {
+      try {
+        const filename = `${aiLog.id}.mp4`
+        const fullPath = path.join(`ai/video/${aiLog.model}`, aiLog.userId, filename)
+        const result = await this.mediaStorageService.putObjectFromUrl(normalizedResult.data.video_url, fullPath)
+        updatedResponse.data.video_url = result.path
+      }
+      catch (error) {
+        this.logger.warn({ error, aiLogId: aiLog.id }, 'Failed to persist dynamic video result to S3')
+      }
+    }
+
+    const updated = await this.aiLogRepo.updateById(aiLog.id, {
+      status: mappedStatus,
+      response: updatedResponse,
+      duration: Date.now() - aiLog.startedAt.getTime(),
+      errorMessage: mappedStatus === AiLogStatus.Failed
+        ? responseBody?.errorMessage ?? responseBody?.message ?? responseBody?.error?.message ?? 'Dynamic video task failed'
+        : undefined,
+    })
+
+    if (mappedStatus === AiLogStatus.Failed) {
+      await this.refundUserPointsIfNeeded(aiLog)
+    }
+    if (!updated) {
+      return aiLog
+    }
+
+    return updated
   }
 
   /**
@@ -452,7 +687,7 @@ export class VideoService {
       return Object.assign(result, await this.getSora2TaskResult(aiLog.response as unknown as Sora2GetVideoGenerationTaskResponse))
     }
     else {
-      throw new AppException(ResponseCode.InvalidAiTaskId)
+      return Object.assign(result, ProviderClientFactory.normalizeGenericVideoResult(aiLog.response))
     }
   }
 
@@ -462,12 +697,14 @@ export class VideoService {
   async getVideoTaskStatus(request: UserVideoTaskQueryDto) {
     const { taskId } = request
 
-    const aiLog = await this.aiLogRepo.getById(taskId)
+    const aiLogRecord = await this.aiLogRepo.getById(taskId)
 
-    if (aiLog == null || aiLog.type !== AiLogType.Video) {
+    if (aiLogRecord == null || aiLogRecord.type !== AiLogType.Video) {
       throw new AppException(ResponseCode.InvalidAiTaskId)
     }
-    return this.transformToCommonResponse(aiLog)
+
+    const refreshedLog = await this.pollDynamicVideoTask(aiLogRecord as AiLog)
+    return this.transformToCommonResponse(refreshedLog)
   }
 
   async listVideoTasks(request: UserListVideoTasksQueryDto) {
@@ -476,35 +713,64 @@ export class VideoService {
       type: AiLogType.Video,
     })
 
-    return [await Promise.all(aiLogs.map(log => this.transformToCommonResponse(log))), count] as const
+    return [await Promise.all(aiLogs.map(async (log) => {
+      const refreshedLog = await this.pollDynamicVideoTask(log)
+      return this.transformToCommonResponse(refreshedLog)
+    })), count] as const
   }
 
   /**
    * 获取视频生成模型参数
    */
   async getVideoGenerationModelParams(data: VideoGenerationModelsQueryDto) {
+    const models = _.cloneDeep(this.modelsConfigService.config.video.generation)
+
     if (data.userType === UserType.User && data.userId) {
       try {
-        const user = await this.userService.getUserInfoById(data.userId)
-        if (user && user.vipInfo && dayjs(user.vipInfo.expireTime).isAfter(dayjs())) {
-          const models = _.cloneDeep(this.modelsConfigService.config.video.generation)
-          // 将所有标记为 freeForVip 的模型价格设为 0
-          models.forEach((model) => {
-            if (model.freeForVip) {
-              model.pricing.forEach((price) => {
-                price.price = 0
-              })
-            }
+        const providerSetting = await ProviderClientFactory.resolveEnabledProvider(
+          this.aiProviderSettingRepository,
+          'video',
+          data.userId,
+        )
+        if (providerSetting?.model && !models.find(model => model.name === providerSetting.model)) {
+          models.unshift({
+            name: providerSetting.model,
+            description: providerSetting.label || providerSetting.model,
+            summary: 'User configured video model',
+            tags: ['custom', 'user'],
+            channel: AiLogChannel.NewApi,
+            modes: providerSetting.providerType === 'kling'
+              ? ['text2video', 'image2video', 'multi-image2video']
+              : providerSetting.providerType === 'libtv'
+                ? ['text2video', 'image2video']
+              : ['text2video', 'image2video'],
+            resolutions: ['720p'],
+            durations: [5],
+            supportedParameters: ['prompt', 'image', 'duration', 'size'],
+            defaults: {
+              resolution: '720p',
+              duration: 5,
+              mode: providerSetting.providerType === 'kling' ? 'std' : 'text',
+            },
+            pricing: [{ price: 0 }],
           })
-          return models
         }
+
+        // VIP 验证已移除：所有 freeForVip 模型始终免费
+        models.forEach((model) => {
+          if (model.freeForVip) {
+            model.pricing.forEach((price) => {
+              price.price = 0
+            })
+          }
+        })
       }
       catch (error) {
         this.logger.warn({ error })
       }
     }
 
-    return this.modelsConfigService.config.video.generation
+    return models
   }
 
   /**
@@ -521,19 +787,9 @@ export class VideoService {
       model,
       duration: parameters?.duration,
     })
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
-    if (userType === UserType.User) {
-      const balance = await this.pointsService.getBalance(userId)
-      if (balance < pricing) {
-        throw new AppException(ResponseCode.UserPointsInsufficient)
-      }
-      await this.pointsService.deductPoints({
-        userId,
-        amount: pricing,
-        type: 'ai_service',
-        description: model,
-      })
-    }
+    await this.chargeUserPointsIfNeeded(userId, userType, billedPoints, model)
 
     const startedAt = new Date()
     const result = await this.dashscopeService.createTextToVideoTask({ model, parameters, ...restParams })
@@ -547,7 +803,7 @@ export class VideoService {
       action: DashscopeAction.Text2Video,
       startedAt,
       type: AiLogType.Video,
-      points: pricing,
+      points: billedPoints,
       request: { model, parameters, ...restParams },
       status: AiLogStatus.Generating,
     })
@@ -567,19 +823,9 @@ export class VideoService {
       mode,
       duration: duration ? Number(duration) : undefined,
     })
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
-    if (userType === UserType.User) {
-      const balance = await this.pointsService.getBalance(userId)
-      if (balance < pricing) {
-        throw new AppException(ResponseCode.UserPointsInsufficient)
-      }
-      await this.pointsService.deductPoints({
-        userId,
-        amount: pricing,
-        type: 'ai_service',
-        description: model_name,
-      })
-    }
+    await this.chargeUserPointsIfNeeded(userId, userType, billedPoints, model_name)
 
     const startedAt = new Date()
     const result = await this.klingService.createText2VideoTask({
@@ -599,7 +845,7 @@ export class VideoService {
       action: KlingAction.Text2Video,
       startedAt,
       type: AiLogType.Video,
-      points: pricing,
+      points: billedPoints,
       request: { ...params, mode, duration, model_name },
       status: AiLogStatus.Generating,
     })
@@ -642,13 +888,13 @@ export class VideoService {
     for (const video of task_result?.videos || []) {
       const filename = `${aiLog.id}-${video.id}.mp4`
       const fullPath = path.join(`ai/video/${aiLog.model}`, aiLog.userId, filename)
-      const result = await this.s3Service.putObjectFromUrl(video.url, fullPath)
+      const result = await this.mediaStorageService.putObjectFromUrl(video.url, fullPath)
       video.url = result.path
     }
     for (const image of task_result?.images || []) {
       const filename = `${aiLog.id}-${image.index}.png`
       const fullPath = path.join(`ai/image/${aiLog.model}`, aiLog.userId, filename)
-      const result = await this.s3Service.putObjectFromUrl(image.url, fullPath)
+      const result = await this.mediaStorageService.putObjectFromUrl(image.url, fullPath)
       image.url = result.path
     }
 
@@ -659,13 +905,8 @@ export class VideoService {
       errorMessage: task_status === 'failed' ? task_status_msg : undefined,
     })
 
-    if (status === AiLogStatus.Failed && aiLog.userType === UserType.User) {
-      await this.pointsService.addPoints({
-        userId: aiLog.userId,
-        amount: aiLog.points,
-        type: 'ai_service',
-        description: aiLog.model,
-      })
+    if (status === AiLogStatus.Failed) {
+      await this.refundUserPointsIfNeeded(aiLog)
     }
   }
 
@@ -765,13 +1006,13 @@ export class VideoService {
       if (content.last_frame_url) {
         const filename = `${aiLog.id}-last_frame_url.png`
         const fullPath = path.join(`ai/video/${aiLog.model}`, aiLog.userId, filename)
-        const result = await this.s3Service.putObjectFromUrl(content.last_frame_url, fullPath)
+        const result = await this.mediaStorageService.putObjectFromUrl(content.last_frame_url, fullPath)
         content.last_frame_url = result.path
       }
 
       const filename = `${aiLog.id}.mp4`
       const fullPath = path.join(`ai/video/${aiLog.model}`, aiLog.userId, filename)
-      const result = await this.s3Service.putObjectFromUrl(content.video_url, fullPath)
+      const result = await this.mediaStorageService.putObjectFromUrl(content.video_url, fullPath)
       content.video_url = result.path
     }
 
@@ -784,13 +1025,8 @@ export class VideoService {
       errorMessage: status === 'failed' ? callbackData.error?.message : undefined,
     })
 
-    if (aiLogStatus === AiLogStatus.Failed && aiLog.userType === UserType.User) {
-      await this.pointsService.addPoints({
-        userId: aiLog.userId,
-        amount: aiLog.points,
-        type: 'ai_service',
-        description: aiLog.model,
-      })
+    if (aiLogStatus === AiLogStatus.Failed) {
+      await this.refundUserPointsIfNeeded(aiLog)
     }
   }
 
@@ -817,20 +1053,9 @@ export class VideoService {
       duration: modelParams.duration,
       model,
     })
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
-    if (userType === UserType.User) {
-      const balance = await this.pointsService.getBalance(userId)
-      if (balance < pricing) {
-        throw new AppException(ResponseCode.UserPointsInsufficient)
-      }
-
-      await this.pointsService.deductPoints({
-        userId,
-        amount: pricing,
-        type: 'ai_service',
-        description: model,
-      })
-    }
+    await this.chargeUserPointsIfNeeded(userId, userType, billedPoints, model)
 
     const startedAt = new Date()
     const result = await this.volcengineService.createVideoGenerationTask({
@@ -848,7 +1073,7 @@ export class VideoService {
       channel: AiLogChannel.Volcengine,
       startedAt,
       type: AiLogType.Video,
-      points: pricing,
+      points: billedPoints,
       request: {
         ...params,
         model,
@@ -910,19 +1135,9 @@ export class VideoService {
       mode,
       duration: duration ? Number(duration) : undefined,
     })
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
-    if (userType === UserType.User) {
-      const balance = await this.pointsService.getBalance(userId)
-      if (balance < pricing) {
-        throw new AppException(ResponseCode.UserPointsInsufficient)
-      }
-      await this.pointsService.deductPoints({
-        userId,
-        amount: pricing,
-        type: 'ai_service',
-        description: model_name,
-      })
-    }
+    await this.chargeUserPointsIfNeeded(userId, userType, billedPoints, model_name)
 
     const startedAt = new Date()
     const result = await this.klingService.createImage2VideoTask({
@@ -942,7 +1157,7 @@ export class VideoService {
       action: KlingAction.Image2video,
       startedAt,
       type: AiLogType.Video,
-      points: pricing,
+      points: billedPoints,
       request: { ...params, mode, duration, model_name },
       status: AiLogStatus.Generating,
     })
@@ -965,19 +1180,9 @@ export class VideoService {
       mode,
       duration: duration ? Number(duration) : undefined,
     })
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
-    if (userType === UserType.User) {
-      const balance = await this.pointsService.getBalance(userId)
-      if (balance < pricing) {
-        throw new AppException(ResponseCode.UserPointsInsufficient)
-      }
-      await this.pointsService.deductPoints({
-        userId,
-        amount: pricing,
-        type: 'ai_service',
-        description: model_name,
-      })
-    }
+    await this.chargeUserPointsIfNeeded(userId, userType, billedPoints, model_name)
 
     const startedAt = new Date()
     const result = await this.klingService.createMultiImage2VideoTask({
@@ -997,7 +1202,7 @@ export class VideoService {
       action: KlingAction.MultiImage2video,
       startedAt,
       type: AiLogType.Video,
-      points: pricing,
+      points: billedPoints,
       request: { ...params, mode, duration, model_name },
       status: AiLogStatus.Generating,
     })
@@ -1019,19 +1224,9 @@ export class VideoService {
       model,
       resolution: parameters?.resolution,
     })
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
-    if (userType === UserType.User) {
-      const balance = await this.pointsService.getBalance(userId)
-      if (balance < pricing) {
-        throw new AppException(ResponseCode.UserPointsInsufficient)
-      }
-      await this.pointsService.deductPoints({
-        userId,
-        amount: pricing,
-        type: 'ai_service',
-        description: model,
-      })
-    }
+    await this.chargeUserPointsIfNeeded(userId, userType, billedPoints, model)
 
     const startedAt = new Date()
     const result = await this.dashscopeService.createImageToVideoTask({ model, parameters, ...restParams })
@@ -1045,7 +1240,7 @@ export class VideoService {
       action: DashscopeAction.Image2Video,
       startedAt,
       type: AiLogType.Video,
-      points: pricing,
+      points: billedPoints,
       request: { model, parameters, ...restParams },
       status: AiLogStatus.Generating,
     })
@@ -1091,7 +1286,7 @@ export class VideoService {
     if (status === AiLogStatus.Success && video_url) {
       const filename = `${aiLog.id}.mp4`
       const fullPath = path.join(`ai/video/${aiLog.model}`, aiLog.userId, filename)
-      const result = await this.s3Service.putObjectFromUrl(video_url, fullPath)
+      const result = await this.mediaStorageService.putObjectFromUrl(video_url, fullPath)
       callbackData.output.video_url = result.path
     }
 
@@ -1102,13 +1297,8 @@ export class VideoService {
       errorMessage: status === AiLogStatus.Failed ? callbackData.message : undefined,
     })
 
-    if (status === AiLogStatus.Failed && aiLog.userType === UserType.User) {
-      await this.pointsService.addPoints({
-        userId: aiLog.userId,
-        amount: aiLog.points,
-        type: 'ai_service',
-        description: aiLog.model,
-      })
+    if (status === AiLogStatus.Failed) {
+      await this.refundUserPointsIfNeeded(aiLog)
     }
   }
 
@@ -1166,19 +1356,9 @@ export class VideoService {
       resolution: parameters?.resolution,
       duration: parameters?.duration,
     })
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
-    if (userType === UserType.User) {
-      const balance = await this.pointsService.getBalance(userId)
-      if (balance < pricing) {
-        throw new AppException(ResponseCode.UserPointsInsufficient)
-      }
-      await this.pointsService.deductPoints({
-        userId,
-        amount: pricing,
-        type: 'ai_service',
-        description: model,
-      })
-    }
+    await this.chargeUserPointsIfNeeded(userId, userType, billedPoints, model)
 
     const startedAt = new Date()
     const result = await this.dashscopeService.createKeyFrameToVideoTask({ model, parameters, ...restParams })
@@ -1192,7 +1372,7 @@ export class VideoService {
       action: DashscopeAction.KeyFrame2Video,
       startedAt,
       type: AiLogType.Video,
-      points: pricing,
+      points: billedPoints,
       request: { model, parameters, ...restParams },
       status: AiLogStatus.Generating,
     })
@@ -1214,20 +1394,9 @@ export class VideoService {
       userType,
       model,
     })
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
-    if (userType === UserType.User) {
-      const balance = await this.pointsService.getBalance(userId)
-      if (balance < pricing) {
-        throw new AppException(ResponseCode.UserPointsInsufficient)
-      }
-
-      await this.pointsService.deductPoints({
-        userId,
-        amount: pricing,
-        type: 'ai_service',
-        description: model,
-      })
-    }
+    await this.chargeUserPointsIfNeeded(userId, userType, billedPoints, model)
 
     const startedAt = new Date()
     const result = await this.sora2Service.createVideoGenerationTask({
@@ -1244,7 +1413,7 @@ export class VideoService {
       channel: AiLogChannel.Sora2,
       startedAt,
       type: AiLogType.Video,
-      points: pricing,
+      points: billedPoints,
       request: {
         ...params,
         model,
@@ -1313,14 +1482,14 @@ export class VideoService {
     if (data.video_url) {
       const filename = `${aiLog.id}.mp4`
       const fullPath = path.join(`ai/video/${aiLog.model}`, aiLog.userId, filename)
-      const result = await this.s3Service.putObjectFromUrl(data.video_url, fullPath)
+      const result = await this.mediaStorageService.putObjectFromUrl(data.video_url, fullPath)
       data.video_url = result.path
     }
 
     if (data.thumbnail_url) {
       const filename = `${aiLog.id}-thumbnail.webp`
       const fullPath = path.join(`ai/video/${aiLog.model}`, aiLog.userId, filename)
-      const result = await this.s3Service.putObjectFromUrl(data.thumbnail_url, fullPath)
+      const result = await this.mediaStorageService.putObjectFromUrl(data.thumbnail_url, fullPath)
       data.thumbnail_url = result.path
     }
 
@@ -1333,13 +1502,8 @@ export class VideoService {
       errorMessage: status === Sora2TaskStatus.Failed ? data.finish_reason : undefined,
     })
 
-    if (aiLogStatus === AiLogStatus.Failed && aiLog.userType === UserType.User) {
-      await this.pointsService.addPoints({
-        userId: aiLog.userId,
-        amount: aiLog.points,
-        type: 'ai_service',
-        description: aiLog.model,
-      })
+    if (aiLogStatus === AiLogStatus.Failed) {
+      await this.refundUserPointsIfNeeded(aiLog)
     }
   }
 }

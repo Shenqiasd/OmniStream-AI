@@ -1,19 +1,21 @@
 import path from 'node:path'
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { QueueService } from '@yikart/aitoearn-queue'
-import { S3Service } from '@yikart/aws-s3'
 import { AppException, getExtByMimeType, ImageType, ResponseCode, UserType } from '@yikart/common'
-import { AiLogChannel, AiLogRepository, AiLogStatus, AiLogType } from '@yikart/mongodb'
+import { AiLogChannel, AiLogRepository, AiLogStatus, AiLogType, AiProviderSettingRepository } from '@yikart/mongodb'
 import parseDataUri from 'data-urls'
 import dayjs from 'dayjs'
 import _ from 'lodash'
 import OpenAI from 'openai'
+import { config } from '../../config'
+import { LocalMediaService } from '../../file/storage/local-media.service'
 import { PointsService } from '../../user/points.service'
 import { UserService } from '../../user/user.service'
 import { FireflycardService } from '../libs/fireflycard'
 import { Md2cardService } from '../libs/md2card'
 import { OpenaiService } from '../libs/openai'
 import { ModelsConfigService } from '../models-config'
+import { ProviderClientFactory } from '../provider-settings/provider-client.factory'
 import {
   FireflyCardDto,
   ImageEditDto,
@@ -33,9 +35,13 @@ type Uploadable = File | Response
 export class ImageService {
   private readonly logger = new Logger(ImageService.name)
 
+  private shouldSkipBusinessGates(userType: UserType) {
+    return userType === UserType.User
+  }
+
   constructor(
     private readonly fireflyCardService: FireflycardService,
-    private readonly s3Service: S3Service,
+    private readonly mediaStorageService: LocalMediaService,
     private readonly openaiService: OpenaiService,
     private readonly md2cardService: Md2cardService,
     private readonly aiLogRepo: AiLogRepository,
@@ -43,6 +49,7 @@ export class ImageService {
     private readonly modelsConfigService: ModelsConfigService,
     private readonly queueService: QueueService,
     private readonly userService: UserService,
+    private readonly aiProviderSettingRepository: AiProviderSettingRepository,
   ) { }
 
   /**
@@ -76,13 +83,13 @@ export class ImageService {
   }
 
   /**
-   * 上传图片到S3并返回路径
+   * 上传图片并返回路径
    */
-  private async uploadImageToS3(imageUrlOrResponse: string | Response, basePath: string, user?: string): Promise<string> {
+  private async uploadImageAsset(imageUrlOrResponse: string | Response, basePath: string, user?: string): Promise<string> {
     if (typeof imageUrlOrResponse === 'string') {
       const filename = `${Date.now().toString(36)}-${path.basename(imageUrlOrResponse.split('?')[0])}`
       const fullPath = path.join(basePath, user || '', filename)
-      const result = await this.s3Service.putObjectFromUrl(imageUrlOrResponse, fullPath)
+      const result = await this.mediaStorageService.putObjectFromUrl(imageUrlOrResponse, fullPath)
       return result.path
     }
     else {
@@ -90,7 +97,7 @@ export class ImageService {
       const ext = getExtByMimeType(contentType as ImageType)
       const filename = `${Date.now().toString(36)}.${ext}`
       const fullPath = path.join(basePath, user || '', filename)
-      const result = await this.s3Service.putObject(fullPath, imageUrlOrResponse.body!)
+      const result = await this.mediaStorageService.putObject(fullPath, imageUrlOrResponse.body!, contentType)
       return result.path
     }
   }
@@ -100,23 +107,31 @@ export class ImageService {
    */
   async generation(request: ImageGenerationDto) {
     const { user, ...params } = request
+    const providerSetting = ProviderClientFactory.assertProviderType(
+      await ProviderClientFactory.resolveEnabledProvider(this.aiProviderSettingRepository, 'image', user),
+      'image',
+      ['openai-compatible'],
+    )
+    const resolvedModel = ProviderClientFactory.getResolvedModel(providerSetting, params.model)
 
-    if (params.model === 'gpt-image-1') {
+    if (resolvedModel === 'gpt-image-1') {
       delete params.response_format
       delete params.style
     }
 
     const result = await this.openaiService.createImageGeneration({
       ...params,
-    } as Omit<OpenAI.Images.ImageGenerateParams, 'user'> & { apiKey?: string })
+      model: resolvedModel,
+      ...ProviderClientFactory.getOpenAIOverrides(providerSetting),
+    } as Omit<OpenAI.Images.ImageGenerateParams, 'user'> & { apiKey?: string, baseUrl?: string, timeout?: number })
 
     for (const image of result.data || []) {
       if (image.url) {
-        image.url = await this.uploadImageToS3(image.url, `ai/images/${request.model}`, user)
+        image.url = await this.uploadImageAsset(image.url, `ai/images/${resolvedModel}`, user)
       }
       if (image.b64_json) {
-        const fullPath = path.join(`ai/images/${request.model}`, user || '', `${Date.now().toString(36)}.${result.output_format || 'png'}`)
-        const obj = await this.s3Service.putObject(fullPath, Buffer.from(image.b64_json, 'base64'))
+        const fullPath = path.join(`ai/images/${resolvedModel}`, user || '', `${Date.now().toString(36)}.${result.output_format || 'png'}`)
+        const obj = await this.mediaStorageService.putObject(fullPath, Buffer.from(image.b64_json, 'base64'))
         image.url = obj.path
         delete image.b64_json
       }
@@ -133,6 +148,12 @@ export class ImageService {
    */
   async edit(request: ImageEditDto) {
     const { image, mask, user, ...params } = request
+    const providerSetting = ProviderClientFactory.assertProviderType(
+      await ProviderClientFactory.resolveEnabledProvider(this.aiProviderSettingRepository, 'image', user),
+      'image',
+      ['openai-compatible'],
+    )
+    const resolvedModel = ProviderClientFactory.getResolvedModel(providerSetting, params.model)
 
     let imageFile: Uploadable | Uploadable[]
     if (Array.isArray(image)) {
@@ -146,23 +167,25 @@ export class ImageService {
 
     const maskFile = mask ? await this.getUploadableByUrlOrDataUri(mask, 'mask') : undefined
 
-    if (params.model === 'gpt-image-1') {
+    if (resolvedModel === 'gpt-image-1') {
       delete params.response_format
     }
     const imageResult = await this.openaiService.createImageEdit({
       ...params,
+      model: resolvedModel,
       image: imageFile,
       mask: maskFile,
       size: params.size as 'auto',
-    })
+      ...ProviderClientFactory.getOpenAIOverrides(providerSetting),
+    } as Omit<OpenAI.Images.ImageEditParams, 'user' | 'stream'> & { apiKey?: string, baseUrl?: string, timeout?: number })
 
     for (const image of imageResult.data || []) {
       if (image.url) {
-        image.url = await this.uploadImageToS3(image.url, `ai/images/${request.model}`, user)
+        image.url = await this.uploadImageAsset(image.url, `ai/images/${resolvedModel}`, user)
       }
       if (image.b64_json) {
-        const fullPath = path.join(`ai/images/${request.model}`, user || '', `${Date.now().toString(36)}.png`)
-        const result = await this.s3Service.putObject(fullPath, Buffer.from(image.b64_json, 'base64'))
+        const fullPath = path.join(`ai/images/${resolvedModel}`, user || '', `${Date.now().toString(36)}.png`)
+        const result = await this.mediaStorageService.putObject(fullPath, Buffer.from(image.b64_json, 'base64'))
         image.url = result.path
         delete image.b64_json
       }
@@ -182,7 +205,7 @@ export class ImageService {
     const result = await this.md2cardService.generateCard(request)
 
     for (const image of result.images) {
-      image.url = await this.uploadImageToS3(image.url, 'ai/images/md2card')
+      image.url = await this.uploadImageAsset(image.url, 'ai/images/md2card')
     }
 
     return result
@@ -194,7 +217,7 @@ export class ImageService {
   async fireflyCard(request: FireflyCardDto) {
     const reponse = await this.fireflyCardService.createImage(request)
 
-    const imagePath = await this.uploadImageToS3(reponse, 'ai/images/md2card')
+    const imagePath = await this.uploadImageAsset(reponse, 'ai/images/md2card')
     return {
       image: imagePath,
     }
@@ -263,6 +286,7 @@ export class ImageService {
   }): Promise<T> {
     const { userId, userType, model, channel, type, pricing, request, run } = opts
     const startedAt = new Date()
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
     const log = await this.aiLogRepo.create({
       userId,
@@ -270,13 +294,13 @@ export class ImageService {
       model,
       channel: channel ?? AiLogChannel.NewApi,
       type,
-      points: pricing,
+      points: billedPoints,
       request,
       status: AiLogStatus.Generating,
       startedAt,
     })
 
-    if (pricing > 0 && userType === UserType.User) {
+    if (pricing > 0 && userType === UserType.User && !this.shouldSkipBusinessGates(userType)) {
       const balance = await this.pointsService.getBalance(userId)
       if (balance < pricing) {
         throw new AppException(ResponseCode.UserPointsInsufficient)
@@ -285,8 +309,8 @@ export class ImageService {
     }
 
     const result = await run().catch(async (e) => {
-      if (pricing > 0 && userType === UserType.User) {
-        await this.addUserPoints(userId, pricing, model)
+      if (billedPoints > 0 && userType === UserType.User && !this.shouldSkipBusinessGates(userType)) {
+        await this.addUserPoints(userId, billedPoints, model)
       }
       const duration = Date.now() - startedAt.getTime()
 
@@ -382,26 +406,41 @@ export class ImageService {
    * @param data 查询参数，包含可选的 userId 和 userType，可用于后续个性化模型推荐
    */
   async generationModelConfig(data: ImageGenerationModelsQueryDto) {
+    const models = _.cloneDeep(this.modelsConfigService.config.image.generation)
+
     if (data.userType === UserType.User && data.userId) {
       try {
-        const user = await this.userService.getUserInfoById(data.userId)
-        if (user && user.vipInfo && dayjs(user.vipInfo.expireTime).isAfter(dayjs())) {
-          const models = _.cloneDeep(this.modelsConfigService.config.image.generation)
-          // 将所有标记为 freeForVip 的模型价格设为 0
-          models.forEach((model) => {
-            if (model.freeForVip) {
-              model.pricing = '0'
-            }
+        const providerSetting = await ProviderClientFactory.resolveEnabledProvider(
+          this.aiProviderSettingRepository,
+          'image',
+          data.userId,
+        )
+        if (providerSetting?.model && !models.find(model => model.name === providerSetting.model)) {
+          models.unshift({
+            name: providerSetting.model,
+            description: providerSetting.label || providerSetting.model,
+            summary: 'User configured image model',
+            tags: ['custom', 'user'],
+            sizes: ['1024x1024'],
+            qualities: ['standard'],
+            styles: ['natural'],
+            pricing: '0',
           })
-          return models
         }
+
+        // VIP 验证已移除：所有 freeForVip 模型始终免费
+        models.forEach((model) => {
+          if (model.freeForVip) {
+            model.pricing = '0'
+          }
+        })
       }
       catch (error) {
         this.logger.warn({ error })
       }
     }
 
-    return this.modelsConfigService.config.image.generation
+    return models
   }
 
   /**
@@ -409,26 +448,40 @@ export class ImageService {
    * @param data 查询参数，包含可选的 userId 和 userType，可用于后续个性化模型推荐
    */
   async editModelConfig(data: ImageEditModelsQueryDto) {
+    const models = _.cloneDeep(this.modelsConfigService.config.image.edit)
+
     if (data.userType === UserType.User && data.userId) {
       try {
-        const user = await this.userService.getUserInfoById(data.userId)
-        if (user && user.vipInfo && dayjs(user.vipInfo.expireTime).isAfter(dayjs())) {
-          const models = _.cloneDeep(this.modelsConfigService.config.image.edit)
-          // 将所有标记为 freeForVip 的模型价格设为 0
-          models.forEach((model) => {
-            if (model.freeForVip) {
-              model.pricing = '0'
-            }
+        const providerSetting = await ProviderClientFactory.resolveEnabledProvider(
+          this.aiProviderSettingRepository,
+          'image',
+          data.userId,
+        )
+        if (providerSetting?.model && !models.find(model => model.name === providerSetting.model)) {
+          models.unshift({
+            name: providerSetting.model,
+            description: providerSetting.label || providerSetting.model,
+            summary: 'User configured image edit model',
+            tags: ['custom', 'user'],
+            sizes: ['1024x1024'],
+            pricing: '0',
+            maxInputImages: 4,
           })
-          return models
         }
+
+        // VIP 验证已移除：所有 freeForVip 模型始终免费
+        models.forEach((model) => {
+          if (model.freeForVip) {
+            model.pricing = '0'
+          }
+        })
       }
       catch (error) {
         this.logger.warn({ error })
       }
     }
 
-    return this.modelsConfigService.config.image.edit
+    return models
   }
 
   /**
@@ -437,6 +490,7 @@ export class ImageService {
   async userGenerationAsync(request: UserImageGenerationDto) {
     const { userId, userType, ...params } = request
     const pricing = await this.getImageModelPricing(params.model, 'generation', userId, userType)
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
     // 创建 AiLog 记录
     const log = await this.aiLogRepo.create({
@@ -445,23 +499,23 @@ export class ImageService {
       model: params.model,
       channel: AiLogChannel.NewApi,
       type: AiLogType.Image,
-      points: pricing,
+      points: billedPoints,
       request: params,
       status: AiLogStatus.Generating,
       startedAt: new Date(),
     })
 
     // 扣除积分
-    if (pricing > 0 && userType === UserType.User) {
+    if (billedPoints > 0 && userType === UserType.User && !this.shouldSkipBusinessGates(userType)) {
       const balance = await this.pointsService.getBalance(userId)
-      if (balance < pricing) {
+      if (balance < billedPoints) {
         await this.aiLogRepo.updateById(log.id, {
           status: AiLogStatus.Failed,
           errorMessage: '积分不足',
         })
         throw new AppException(ResponseCode.UserPointsInsufficient)
       }
-      await this.deductUserPoints(userId, pricing, params.model)
+      await this.deductUserPoints(userId, billedPoints, params.model)
     }
 
     // 添加队列任务
@@ -472,7 +526,7 @@ export class ImageService {
       model: params.model,
       channel: AiLogChannel.NewApi,
       type: AiLogType.Image,
-      pricing,
+      pricing: billedPoints,
       request: { ...params, user: userId },
       taskType: 'generation',
     })
@@ -489,6 +543,7 @@ export class ImageService {
   async userEditAsync(request: UserImageEditDto) {
     const { userId, userType, ...params } = request
     const pricing = await this.getImageModelPricing(params.model, 'edit', userId, userType)
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
     // 创建 AiLog 记录
     const log = await this.aiLogRepo.create({
@@ -497,23 +552,23 @@ export class ImageService {
       model: params.model,
       channel: AiLogChannel.NewApi,
       type: AiLogType.Image,
-      points: pricing,
+      points: billedPoints,
       request: params,
       status: AiLogStatus.Generating,
       startedAt: new Date(),
     })
 
     // 扣除积分
-    if (pricing > 0 && userType === UserType.User) {
+    if (billedPoints > 0 && userType === UserType.User && !this.shouldSkipBusinessGates(userType)) {
       const balance = await this.pointsService.getBalance(userId)
-      if (balance < pricing) {
+      if (balance < billedPoints) {
         await this.aiLogRepo.updateById(log.id, {
           status: AiLogStatus.Failed,
           errorMessage: '积分不足',
         })
         throw new AppException(ResponseCode.UserPointsInsufficient)
       }
-      await this.deductUserPoints(userId, pricing, params.model)
+      await this.deductUserPoints(userId, billedPoints, params.model)
     }
 
     // 添加队列任务
@@ -524,7 +579,7 @@ export class ImageService {
       model: params.model,
       channel: AiLogChannel.NewApi,
       type: AiLogType.Image,
-      pricing,
+      pricing: billedPoints,
       request: { ...params, user: userId },
       taskType: 'edit',
     })
@@ -541,6 +596,7 @@ export class ImageService {
   async userMd2CardAsync(request: UserMd2CardDto) {
     const { userId, userType, ...params } = request
     const pricing = 2
+    const billedPoints = this.shouldSkipBusinessGates(userType) ? 0 : pricing
 
     // 创建 AiLog 记录
     const log = await this.aiLogRepo.create({
@@ -549,23 +605,23 @@ export class ImageService {
       model: 'md2card',
       channel: AiLogChannel.Md2Card,
       type: AiLogType.Card,
-      points: pricing,
+      points: billedPoints,
       request: params,
       status: AiLogStatus.Generating,
       startedAt: new Date(),
     })
 
     // 扣除积分
-    if (pricing > 0 && userType === UserType.User) {
+    if (billedPoints > 0 && userType === UserType.User && !this.shouldSkipBusinessGates(userType)) {
       const balance = await this.pointsService.getBalance(userId)
-      if (balance < pricing) {
+      if (balance < billedPoints) {
         await this.aiLogRepo.updateById(log.id, {
           status: AiLogStatus.Failed,
           errorMessage: '积分不足',
         })
         throw new AppException(ResponseCode.UserPointsInsufficient)
       }
-      await this.deductUserPoints(userId, pricing, 'md2card')
+      await this.deductUserPoints(userId, billedPoints, 'md2card')
     }
 
     // 添加队列任务
@@ -576,7 +632,7 @@ export class ImageService {
       model: 'md2card',
       channel: AiLogChannel.Md2Card,
       type: AiLogType.Card,
-      pricing,
+      pricing: billedPoints,
       request: params,
       taskType: 'md2card',
     })
