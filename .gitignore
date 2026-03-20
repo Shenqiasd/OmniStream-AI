@@ -22,7 +22,10 @@ release
 *.njsproj
 *.sln
 *.sw?
-# .env
+.env
+.env.bak
+.env.*
+!.env.example
 
 #lockfile
 # package-lock.json
@@ -45,3 +48,4 @@ public/bin/*
 
 sh/*
 project/web/.cursor/
+.gstack/
