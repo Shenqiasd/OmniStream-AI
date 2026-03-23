@@ -69,9 +69,10 @@ export class FileController {
   async uploadFile(
     @UploadedFile() file: any,
     @Headers() headers: any,
+    @Body('key') key?: string,
   ) {
     const secondPath: string = headers['second-path']
-    return await this.fileService.upFileStream(file, secondPath)
+    return await this.fileService.upFileStream(file, secondPath, undefined, undefined, key)
   }
 
   @ApiDoc({

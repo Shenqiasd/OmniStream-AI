@@ -1,6 +1,7 @@
 import { Account, AccountSchema } from './account.schema'
 import { AccountGroup, AccountGroupSchema } from './accountGroup.schema'
 import { AiLog, AiLogSchema } from './ai-log.schema'
+import { AiProviderSetting, AiProviderSettingSchema } from './ai-provider-setting.schema'
 import { ApiKeyAccount, ApiKeyAccountSchema } from './api-key-account.schema'
 import { ApiKey, ApiKeySchema } from './api-key.schema'
 import { AppConfig, AppConfigSchema } from './app-config.schema'
@@ -29,6 +30,7 @@ import {
 export * from './account.schema'
 export * from './accountGroup.schema'
 export * from './ai-log.schema'
+export * from './ai-provider-setting.schema'
 export * from './api-key-account.schema'
 export * from './api-key.schema'
 export * from './app-config.schema'
@@ -53,6 +55,7 @@ export const schemas = [
   { name: User.name, schema: UserSchema },
   { name: PointsRecord.name, schema: PointsRecordSchema },
   { name: AiLog.name, schema: AiLogSchema },
+  { name: AiProviderSetting.name, schema: AiProviderSettingSchema },
   { name: AppConfig.name, schema: AppConfigSchema },
   { name: Blog.name, schema: BlogSchema },
   { name: Feedback.name, schema: FeedbackSchema },

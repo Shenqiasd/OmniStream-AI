@@ -2,9 +2,9 @@
  * 浏览器插件相关工具函数
  */
 
-import type { ProgressEvent } from '@/store'
-import { PluginStatus } from '@/store'
+import type { ProgressEvent } from './types/progress.types'
 import { PLUGIN_STATUS_I18N_KEY, PUBLISH_STAGE_I18N_KEY } from './constants'
+import { PluginStatus } from './types/baseTypes'
 
 /**
  * 获取插件状态的国际化 key

@@ -3,17 +3,22 @@ import {
   ExecutionContext,
   Injectable,
   Logger,
-  UnauthorizedException,
 } from '@nestjs/common'
-import { Reflector } from '@nestjs/core'
 import { JwtService } from '@nestjs/jwt'
 import { AitoearnAuthConfig } from './aitoearn-auth.config'
-import { IS_INTERNAL_KEY, IS_PUBLIC_KEY } from './aitoearn-auth.constants'
+import { TokenInfo } from './aitoearn-auth.interface'
+
+const LOCAL_DEV_TOKEN: TokenInfo & { email: string, type: string } = {
+  id: '000000000000000000000001',
+  mail: 'local@aitoearn.dev',
+  email: 'local@aitoearn.dev',
+  name: 'Local Dev User',
+  type: 'user',
+}
 
 @Injectable()
 export class AitoearnAuthGuard implements CanActivate {
   private readonly logger = new Logger(AitoearnAuthGuard.name)
-  private readonly reflector = new Reflector()
   private readonly secret: string
   constructor(
     private readonly jwtService: JwtService,
@@ -23,7 +28,11 @@ export class AitoearnAuthGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // 认证已禁用，直接放行所有请求
+    const request = context.switchToHttp().getRequest()
+    request.user = {
+      ...LOCAL_DEV_TOKEN,
+      ...request.user,
+    }
     return true
   }
 

@@ -4,6 +4,12 @@ import { Injectable, Logger } from '@nestjs/common'
 import OpenAI from 'openai'
 import { OpenaiConfig } from './openai.config'
 
+type RuntimeOpenAIOptions = {
+  apiKey?: string
+  baseUrl?: string
+  timeout?: number
+}
+
 @Injectable()
 export class OpenaiService {
   private readonly logger = new Logger(OpenaiService.name)
@@ -15,16 +21,17 @@ export class OpenaiService {
     this.chatOpenAI = this._createChatModel({})
   }
 
-  private _createOpenAIClient(apiKey?: string): OpenAI {
+  private _createOpenAIClient(options?: RuntimeOpenAIOptions): OpenAI {
     return new OpenAI({
-      apiKey: apiKey ?? this.config.apiKey,
-      baseURL: this.config.baseUrl,
-      timeout: this.config.timeout,
+      apiKey: options?.apiKey ?? this.config.apiKey,
+      baseURL: options?.baseUrl ?? this.config.baseUrl,
+      timeout: options?.timeout ?? this.config.timeout,
     })
   }
 
   private _createChatModel(options: Partial<OpenAIChatInput> & {
     apiKey?: string
+    baseUrl?: string
   }): ChatOpenAI {
     return new ChatOpenAI({
       ...options,
@@ -32,7 +39,7 @@ export class OpenaiService {
       timeout: options.timeout ?? this.config.timeout,
       apiKey: options.apiKey ?? this.config.apiKey,
       configuration: {
-        baseURL: this.config.baseUrl,
+        baseURL: options.baseUrl ?? this.config.baseUrl,
       },
       streaming: true,
     })
@@ -72,20 +79,20 @@ export class OpenaiService {
   }
 
   async createImageGeneration(options: Omit<OpenAI.Images.ImageGenerateParams, 'user' | 'stream'> & { apiKey?: string }): Promise<OpenAI.Images.ImagesResponse> {
-    const { apiKey, ...imageParams } = options
-    const client = this._createOpenAIClient(apiKey)
+    const { apiKey, baseUrl, timeout, ...imageParams } = options as Omit<OpenAI.Images.ImageGenerateParams, 'user' | 'stream'> & RuntimeOpenAIOptions
+    const client = this._createOpenAIClient({ apiKey, baseUrl, timeout })
     return client.images.generate(imageParams)
   }
 
   async createImageEdit(options: Omit<OpenAI.Images.ImageEditParams, 'user' | 'stream'> & { apiKey?: string }): Promise<OpenAI.Images.ImagesResponse> {
-    const { apiKey, ...editParams } = options
-    const client = this._createOpenAIClient(apiKey)
+    const { apiKey, baseUrl, timeout, ...editParams } = options as Omit<OpenAI.Images.ImageEditParams, 'user' | 'stream'> & RuntimeOpenAIOptions
+    const client = this._createOpenAIClient({ apiKey, baseUrl, timeout })
     return client.images.edit(editParams)
   }
 
   async createImageVariation(options: Omit<OpenAI.Images.ImageCreateVariationParams, 'user'> & { apiKey?: string }): Promise<OpenAI.Images.ImagesResponse> {
-    const { apiKey, ...variationParams } = options
-    const client = this._createOpenAIClient(apiKey)
+    const { apiKey, baseUrl, timeout, ...variationParams } = options as Omit<OpenAI.Images.ImageCreateVariationParams, 'user'> & RuntimeOpenAIOptions
+    const client = this._createOpenAIClient({ apiKey, baseUrl, timeout })
     return client.images.createVariation(variationParams)
   }
 }

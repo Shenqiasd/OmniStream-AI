@@ -120,13 +120,6 @@ export const PricingContent = memo(({ lng }: PricingContentProps) => {
       return
     }
 
-    // 检查用户是否已登录
-    if (!userStore.userInfo?.id) {
-      toast.error(t('pleaseLoginFirst'))
-      openLoginModal()
-      return
-    }
-
     // 企业版直接发送邮件
     if (planId === 'enterprise') {
       window.open(`mailto:agent@aiearn.ai?subject=Enterprise Plan Inquiry`, '_blank')
@@ -164,7 +157,7 @@ export const PricingContent = memo(({ lng }: PricingContentProps) => {
         mode: paymentMethod,
         payment: paymentType,
         metadata: {
-          userId: userStore.userInfo.id,
+          userId: userStore.userInfo?.id || 'default-user',
         },
       })
 

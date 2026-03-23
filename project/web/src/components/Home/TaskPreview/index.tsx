@@ -32,11 +32,9 @@ export function TaskPreview({ limit = 4, className }: ITaskPreviewProps) {
   const { lng } = useParams()
   const {
     _hasHydrated,
-    token,
   } = useUserStore(
     useShallow(state => ({
       _hasHydrated: state._hasHydrated,
-      token: state.token,
     })),
   )
 
@@ -61,12 +59,12 @@ export function TaskPreview({ limit = 4, className }: ITaskPreviewProps) {
   }, [limit])
 
   useEffect(() => {
-    if (token && _hasHydrated) {
+    if (_hasHydrated) {
       loadTasks()
     } else {
       setIsLoading(false)
     }
-  }, [loadTasks, token, _hasHydrated])
+  }, [loadTasks, _hasHydrated])
 
   /** 跳转到任务记录页 */
   const handleViewAll = () => {

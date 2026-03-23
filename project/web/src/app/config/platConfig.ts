@@ -75,6 +75,23 @@ export interface IAccountPlatInfo {
 // 各个平台的信息
 export const AccountPlatInfoMap = new Map<PlatType, IAccountPlatInfo>([
   [
+    PlatType.Douyin,
+    {
+      name: 'douyin',
+      icon: douyinSvg,
+      url: 'https://creator.douyin.com/',
+      themeColor: '#111111',
+      pubTypes: new Set([PubType.VIDEO, PubType.ImageText]),
+      commonPubParamsConfig: {
+        titleMax: 30,
+        topicMax: 10,
+        desMax: 2200,
+        imagesMax: 18,
+      },
+      jiancha: true,
+    },
+  ],
+  [
     PlatType.Xhs,
     {
       name: 'rednote',
@@ -85,6 +102,22 @@ export const AccountPlatInfoMap = new Map<PlatType, IAccountPlatInfo>([
       commonPubParamsConfig: {
         titleMax: 10,
         topicMax: 5,
+        desMax: 1000,
+      },
+      jiancha: true,
+    },
+  ],
+  [
+    PlatType.WxSph,
+    {
+      name: 'wxsph',
+      icon: wxSphSvg,
+      url: 'https://channels.weixin.qq.com/',
+      themeColor: '#07C160',
+      pubTypes: new Set([PubType.VIDEO]),
+      commonPubParamsConfig: {
+        titleMax: 30,
+        topicMax: 10,
         desMax: 1000,
       },
       jiancha: true,
@@ -102,6 +135,22 @@ export const AccountPlatInfoMap = new Map<PlatType, IAccountPlatInfo>([
         desMax: 500,
       },
       themeColor: '#FF4D00',
+      jiancha: true,
+    },
+  ],
+  [
+    PlatType.WxGzh,
+    {
+      name: 'wxgzh',
+      icon: gongzhonghaoSvg.src,
+      url: 'https://mp.weixin.qq.com/',
+      themeColor: '#07C160',
+      pubTypes: new Set([PubType.Article]),
+      commonPubParamsConfig: {
+        titleMax: 64,
+        topicMax: 10,
+        desMax: 2000,
+      },
       jiancha: true,
     },
   ],

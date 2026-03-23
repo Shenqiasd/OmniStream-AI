@@ -33,7 +33,7 @@ import styles from './income.module.scss'
 export default function IncomePage() {
   const router = useRouter()
   const params = useParams()
-  const { userInfo, token, lang } = useUserStore()
+  const { userInfo, lang } = useUserStore()
   const { t } = useTransClient('income')
   const lng = params.lng as string
 
@@ -276,9 +276,7 @@ export default function IncomePage() {
 
   // 当筛选条件改变时重新获取数据
   useEffect(() => {
-    if (token) {
-      fetchIncomeRecords(1, incomePagination.pageSize)
-    }
+    fetchIncomeRecords(1, incomePagination.pageSize)
   }, [incomeFilters])
 
   return (

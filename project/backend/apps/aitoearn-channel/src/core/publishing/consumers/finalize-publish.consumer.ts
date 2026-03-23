@@ -5,6 +5,7 @@ import { AccountType } from '@yikart/common'
 import { Job } from 'bullmq'
 import { PublishStatus } from '../../../libs/database/schema/publishTask.schema'
 import { PublishingErrorHandler } from '../error-handler.service'
+import { PlatformAdapterRegistryService } from '../../platforms/adapters/adapter-registry.service'
 import { PublishService } from '../providers/base.service'
 import { PublishingService } from '../publishing.service'
 
@@ -22,6 +23,7 @@ export class FinalizePublishPostConsumer extends WorkerHost implements OnModuleD
   constructor(
     readonly publishingService: PublishingService,
     private readonly publishingErrorHandler: PublishingErrorHandler,
+    private readonly platformAdapterRegistry: PlatformAdapterRegistryService,
   ) {
     super()
   }
@@ -38,7 +40,8 @@ export class FinalizePublishPostConsumer extends WorkerHost implements OnModuleD
         this.logger.error(`[task-${job.data.taskId}] Publish task not found: ${job.data.taskId}`)
         return
       }
-      const publishingProvider = this.publishingProviders[publishTask.accountType]
+      const publishingProvider = this.platformAdapterRegistry.getPublishProvider(publishTask.accountType)
+        || this.publishingProviders[publishTask.accountType]
       if (!publishingProvider) {
         this.logger.error(`[task-${job.data.taskId}] Publishing provider not found for account type: ${publishTask.accountType}`)
         return

@@ -3,17 +3,23 @@
  */
 
 import type {
-  PublishParams as BasePublishParams,
-  PlatformPublishTask,
   ProgressEvent,
+} from './progress.types'
+import type {
+  PublishParams as BasePublishParams,
+} from './publish.types'
+import type {
   PublishTask,
   PublishTaskListConfig,
-} from './index'
+} from './publishTask.types'
 import type { PlatAccountInfo } from './plat.type'
 import { PlatType } from '@/app/config/platConfig'
 
-// 导出任务相关类型
-export type { PlatformPublishTask, PublishTask, PublishTaskListConfig }
+export type {
+  PlatformPublishTask,
+  PublishTask,
+  PublishTaskListConfig,
+} from './publishTask.types'
 export { PlatformTaskStatus } from './publishTask.types'
 
 /**
@@ -53,7 +59,9 @@ export enum PluginStatus {
  * 插件支持的平台列表
  */
 export const PLUGIN_SUPPORTED_PLATFORMS = [
+  PlatType.Douyin,
   PlatType.Xhs,
+  PlatType.WxSph,
 ] as const
 
 /**

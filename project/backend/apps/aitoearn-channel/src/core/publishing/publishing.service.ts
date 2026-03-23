@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { PublishTask } from '../../libs/database/schema/publishTask.schema'
 import { AccountService } from '../account/account.service'
 import { PublishRecordService } from '../account/publish-record.service'
+import { PlatformAdapterRegistryService } from '../platforms/adapters/adapter-registry.service'
 import { FacebookService } from '../platforms/meta/facebook.service'
 import { YoutubeService } from '../platforms/youtube/youtube.service'
 import { IMMEDIATE_PUBLISH_TOLERANCE_SECONDS } from './constant'
@@ -31,6 +32,7 @@ export class PublishingService implements OnModuleDestroy {
     private readonly publishRecordService: PublishRecordService,
     private readonly youtubeService: YoutubeService,
     private readonly facebookService: FacebookService,
+    private readonly platformAdapterRegistry: PlatformAdapterRegistryService,
     @Inject('PUBLISHING_PROVIDERS')
     private readonly publishingProviders: Record<AccountType, PublishService>,
   ) {}
@@ -68,7 +70,13 @@ export class PublishingService implements OnModuleDestroy {
   }
 
   async createPublishingTask(taskInfo: CreatePublishDto) {
-    const validateResult = await this.publishingProviders[taskInfo.accountType].validatePublishParams(taskInfo)
+    const publishingProvider = this.platformAdapterRegistry.getPublishProvider(taskInfo.accountType)
+      || this.publishingProviders[taskInfo.accountType]
+    if (!publishingProvider) {
+      throw new AppException(ResponseCode.PlatformNotSupported, `${taskInfo.accountType} publishing adapter is not implemented`)
+    }
+
+    const validateResult = await publishingProvider.validatePublishParams(taskInfo)
     if (!validateResult.success) {
       throw new AppException(ResponseCode.PublishTaskInvalid, validateResult.message)
     }

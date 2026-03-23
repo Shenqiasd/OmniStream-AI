@@ -12,12 +12,16 @@ import {
   PublishTaskSchema,
 } from '../../libs/database/schema/publishTask.schema'
 import { BilibiliModule } from '../platforms/bilibili/bilibili.module'
+import { PlatformAdapterRegistryService } from '../platforms/adapters/adapter-registry.service'
+import { DouyinModule } from '../platforms/douyin/douyin.module'
 import { KwaiModule } from '../platforms/kwai/kwai.module'
 import { MetaModule } from '../platforms/meta/meta.module'
 import { PinterestModule } from '../platforms/pinterest/pinterest.module'
 import { TiktokModule } from '../platforms/tiktok/tiktok.module'
 import { TwitterModule } from '../platforms/twitter/twitter.module'
 import { WxPlatModule } from '../platforms/wx-plat/wx-plat.module'
+import { WxSphModule } from '../platforms/wx-sph/wx-sph.module'
+import { XiaohongshuModule } from '../platforms/xiaohongshu/xiaohongshu.module'
 import { YoutubeModule } from '../platforms/youtube/youtube.module'
 import { FinalizePublishPostConsumer } from './consumers/finalize-publish.consumer'
 import { ImmediatePublishPostConsumer } from './consumers/immediate-publish.consumer'
@@ -26,6 +30,7 @@ import { CredentialInvalidationService } from './credential-invalidation.service
 import { PublishingErrorHandler } from './error-handler.service'
 import { MediaStagingService } from './media-staging.service'
 import { BilibiliPubService } from './providers/bilibili.service'
+import { DouyinPublishService } from './providers/douyin.service'
 import { FacebookPublishService } from './providers/facebook.service'
 import { InstagramPublishService } from './providers/instgram.service'
 import { kwaiPubService } from './providers/kwai.service'
@@ -35,6 +40,8 @@ import { ThreadsPublishService } from './providers/threads.service'
 import { TiktokPubService } from './providers/tiktok.service'
 import { TwitterPubService } from './providers/twitter.service'
 import { WxGzhPubService } from './providers/wx-gzh.service'
+import { WxSphPublishService } from './providers/wx-sph.service'
+import { XiaohongshuPublishService } from './providers/xiaohongshu.service'
 import { YoutubePubService } from './providers/youtube.service'
 import { PublishingController } from './publishing.controller'
 import { PublishingService } from './publishing.service'
@@ -49,6 +56,7 @@ import { EnqueuePublishingTaskScheduler } from './scheduler/enqueue-publishing-t
       { name: OAuth2Credential.name, schema: OAuth2CredentialSchema },
     ]),
     BilibiliModule,
+    DouyinModule,
     PinterestModule,
     KwaiModule,
     YoutubeModule,
@@ -57,6 +65,8 @@ import { EnqueuePublishingTaskScheduler } from './scheduler/enqueue-publishing-t
     TiktokModule,
     TwitterModule,
     PinterestModule,
+    XiaohongshuModule,
+    WxSphModule,
   ],
   providers: [
     CredentialInvalidationService,
@@ -67,6 +77,7 @@ import { EnqueuePublishingTaskScheduler } from './scheduler/enqueue-publishing-t
     FinalizePublishPostConsumer,
     UpdatePublishedPostConsumer,
     BilibiliPubService,
+    DouyinPublishService,
     kwaiPubService,
     PinterestPubService,
     YoutubePubService,
@@ -77,6 +88,9 @@ import { EnqueuePublishingTaskScheduler } from './scheduler/enqueue-publishing-t
     TiktokPubService,
     LinkedinPublishService,
     TwitterPubService,
+    XiaohongshuPublishService,
+    WxSphPublishService,
+    PlatformAdapterRegistryService,
     EnqueuePublishingTaskScheduler,
     {
       provide: 'PUBLISHING_PROVIDERS',
@@ -91,10 +105,14 @@ import { EnqueuePublishingTaskScheduler } from './scheduler/enqueue-publishing-t
         twitter: TwitterPubService,
         pinterest: PinterestPubService,
         linkedin: LinkedinPublishService,
+        wxGzh: WxGzhPubService,
+        wxSph: WxSphPublishService,
       ) => ({
         [AccountType.BILIBILI]: bilibili,
         [AccountType.KWAI]: kwai,
         [AccountType.YOUTUBE]: youtube,
+        [AccountType.WxGzh]: wxGzh,
+        [AccountType.WxSph]: wxSph,
         [AccountType.FACEBOOK]: facebook,
         [AccountType.INSTAGRAM]: instagram,
         [AccountType.THREADS]: threads,
@@ -114,10 +132,12 @@ import { EnqueuePublishingTaskScheduler } from './scheduler/enqueue-publishing-t
         TwitterPubService,
         PinterestPubService,
         LinkedinPublishService,
+        WxGzhPubService,
+        WxSphPublishService,
       ],
     },
   ],
   controllers: [PublishingController],
-  exports: [PublishingService],
+  exports: [PublishingService, PlatformAdapterRegistryService, 'PUBLISHING_PROVIDERS'],
 })
 export class PublishModule {}

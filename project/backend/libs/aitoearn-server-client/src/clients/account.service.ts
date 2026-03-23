@@ -37,6 +37,14 @@ export class AccountService extends BaseService {
     return res
   }
 
+  async getUserAccounts(userId: string) {
+    const url = `/internal/${userId}/socials/accounts`
+    const config: AxiosRequestConfig = {
+      method: 'GET',
+    }
+    return this.request<Account[]>(url, config)
+  }
+
   /**
    * 获取账户详情
    * @param accountId

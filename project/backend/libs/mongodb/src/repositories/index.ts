@@ -1,6 +1,7 @@
 import { AccountRepository } from './account.repository'
 import { AccountGroupRepository } from './accountGroup.repository'
 import { AiLogRepository } from './ai-log.repository'
+import { AiProviderSettingRepository } from './ai-provider-setting.repository'
 import { ApiKeyAccountRepository } from './api-key-account.repository'
 import { ApiKeyRepository } from './api-key.repository'
 import { AppConfigRepository } from './app-config.repository'
@@ -22,6 +23,7 @@ import { VipRepository } from './vip.repository'
 export * from './account.repository'
 export * from './accountGroup.repository'
 export * from './ai-log.repository'
+export * from './ai-provider-setting.repository'
 export * from './api-key-account.repository'
 export * from './api-key.repository'
 export * from './app-config.repository'
@@ -43,6 +45,7 @@ export * from './vip.repository'
 
 export const repositories = [
   AiLogRepository,
+  AiProviderSettingRepository,
   AppConfigRepository,
   BlogRepository,
   FeedbackRepository,

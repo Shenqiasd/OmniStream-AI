@@ -4,6 +4,7 @@ import { RedisService } from '@yikart/redis'
 import { AccountStatus } from '../../libs/database/schema/account.schema'
 import { SocialMediaError } from '../../libs/exception/base'
 import { AccountService } from '../account/account.service'
+import { PlatformAdapterRegistryService } from './adapters/adapter-registry.service'
 import { PlatformBaseService } from './base.service'
 
 @Injectable()
@@ -18,12 +19,20 @@ export class PlatformService {
   @Inject(AccountService)
   private readonly accountService: AccountService
 
+  @Inject(PlatformAdapterRegistryService)
+  private readonly platformAdapterRegistry: PlatformAdapterRegistryService
+
   async getUserAccounts(userId: string) {
     const accounts = await this.accountService.getUserAccountList(userId)
     if (!accounts || accounts.length === 0) {
       return []
     }
     for (const account of accounts) {
+      const adapterStatus = await this.platformAdapterRegistry.getCredentialStatus(account.type, account._id.toString())
+      if (adapterStatus !== undefined) {
+        account.status = adapterStatus
+        continue
+      }
       const svc = this.platformServices[account.type]
       if (svc) {
         try {
@@ -41,6 +50,10 @@ export class PlatformService {
 
   async deletePost(accountId: string, platform: AccountType, postId: string) {
     try {
+      const adapterDeleteResult = await this.platformAdapterRegistry.deletePublishedPost(platform, accountId, postId)
+      if (adapterDeleteResult !== undefined) {
+        return adapterDeleteResult
+      }
       const svc = this.platformServices[platform]
       if (svc) {
         return await svc.deletePost(accountId, postId)

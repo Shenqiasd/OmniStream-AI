@@ -8,7 +8,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { CreditCard, Crown, Globe, User } from 'lucide-react'
+import { Bot, CreditCard, Crown, Globe, User } from 'lucide-react'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { useTransClient } from '@/app/i18n/client'
@@ -23,7 +23,7 @@ import { useUserStore } from '@/store/user'
 import { AgentTab, GeneralTab, MembershipTab, ProfileTab, SubscriptionTab } from './tabs'
 
 /** 设置页面类型 */
-type SettingsTab = 'profile' | 'subscription' | 'membership' | 'general'
+type SettingsTab = 'profile' | 'agent' | 'subscription' | 'membership' | 'general'
 
 /** Tab 配置项类型 */
 interface TabConfig {
@@ -52,26 +52,20 @@ export interface SettingsModalProps {
 export function SettingsModal({ open, onClose, defaultTab }: SettingsModalProps) {
   const { t } = useTransClient('settings')
   const userInfo = useUserStore(state => state.userInfo)
-  const isLoggedIn = !!token
-  const [activeTab, setActiveTab] = useState<SettingsTab>(isLoggedIn ? 'profile' : 'general')
+  const isLoggedIn = true // Always logged in (no auth)
+  const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
 
   // 打开弹框时，如果有 defaultTab 则使用它
   useEffect(() => {
-    if (open && defaultTab && isLoggedIn) {
+    if (open && defaultTab) {
       setActiveTab(defaultTab)
     }
-  }, [open, defaultTab, isLoggedIn])
-
-  // 登录状态变化时重置标签
-  useEffect(() => {
-    if (!isLoggedIn && activeTab === 'profile') {
-      setActiveTab('general')
-    }
-  }, [isLoggedIn, activeTab])
+  }, [open, defaultTab])
 
   // Tab 配置列表（易于扩展）
   const tabConfigs: TabConfig[] = [
     { key: 'profile', icon: <User className="h-4 w-4" />, label: t('tabs.profile'), requireAuth: true },
+    { key: 'agent', icon: <Bot className="h-4 w-4" />, label: t('tabs.agent'), requireAuth: true },
     { key: 'subscription', icon: <CreditCard className="h-4 w-4" />, label: t('tabs.subscription'), requireAuth: true },
     // 会员 Tab：只有用户曾经有过 vipInfo 才显示
     ...(userInfo?.vipInfo
@@ -93,6 +87,8 @@ export function SettingsModal({ open, onClose, defaultTab }: SettingsModalProps)
     switch (activeTab) {
       case 'profile':
         return isLoggedIn ? <ProfileTab onClose={onClose} /> : <GeneralTab />
+      case 'agent':
+        return isLoggedIn ? <AgentTab /> : <GeneralTab />
       case 'subscription':
         return isLoggedIn ? <SubscriptionTab /> : <GeneralTab />
       case 'membership':

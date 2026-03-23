@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common'
+import { forwardRef, Module } from '@nestjs/common'
 import { AccountType } from '@yikart/common'
+import { PublishModule } from '../publishing/publishing.module'
 import { BilibiliModule } from './bilibili/bilibili.module'
 import { BilibiliService } from './bilibili/bilibili.service'
 import { DumpAvatarConsumer } from './dump-avatar.consumer'
@@ -14,11 +15,14 @@ import { PinterestModule } from './pinterest/pinterest.module'
 import { PinterestService } from './pinterest/pinterest.service'
 import { PlatformController } from './platforms.controller'
 import { PlatformService } from './platforms.service'
+import { DouyinModule } from './douyin/douyin.module'
+import { XiaohongshuModule } from './xiaohongshu/xiaohongshu.module'
 import { TiktokModule } from './tiktok/tiktok.module'
 import { TiktokService } from './tiktok/tiktok.service'
 import { TwitterModule } from './twitter/twitter.module'
 import { TwitterService } from './twitter/twitter.service'
 import { WxPlatModule } from './wx-plat/wx-plat.module'
+import { WxSphModule } from './wx-sph/wx-sph.module'
 import { YoutubeModule } from './youtube/youtube.module'
 import { YoutubeService } from './youtube/youtube.service'
 
@@ -28,10 +32,14 @@ import { YoutubeService } from './youtube/youtube.service'
     KwaiModule,
     MetaModule,
     PinterestModule,
+    DouyinModule,
     TiktokModule,
     TwitterModule,
+    XiaohongshuModule,
     WxPlatModule,
+    WxSphModule,
     YoutubeModule,
+    forwardRef(() => PublishModule),
   ],
   controllers: [PlatformController],
   providers: [

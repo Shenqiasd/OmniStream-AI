@@ -178,8 +178,17 @@ export class AccountService {
    * @param userId
    * @returns
    */
+  async getStoredUserAccounts(userId: string) {
+    return await this.accountRepository.getUserAccounts(userId)
+  }
+
+  /**
+   * Get all accounts with channel status hydration
+   * @param userId
+   * @returns
+   */
   async getUserAccounts(userId: string) {
-    const accounts = await this.accountRepository.getUserAccounts(userId)
+    const accounts = await this.getStoredUserAccounts(userId)
 
     const accountMap: { [key: string]: Account } = {}
     for (const account of accounts) {

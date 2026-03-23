@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common'
-import { S3Service } from '@yikart/aws-s3'
 import dayjs from 'dayjs'
 import * as mime from 'mime-types'
 import { v4 as uuidv4 } from 'uuid'
 import { config } from '../config'
+import { LocalMediaService } from './storage/local-media.service'
 
 @Injectable()
 export class FileService {
-  constructor(private readonly s3Service: S3Service) { }
+  constructor(private readonly mediaStorageService: LocalMediaService) { }
 
   private getNewFilePath(opt: {
     path: string
@@ -39,19 +39,35 @@ export class FileService {
     path: string,
     newName?: string,
     permanent?: boolean,
+    key?: string,
   ) {
+    if (key) {
+      const res = await this.mediaStorageService.putObject(
+        key,
+        file.buffer,
+        file.mimetype,
+      )
+      return {
+        key: res.path,
+        url: this.mediaStorageService.buildUrl(res.path),
+      }
+    }
+
     const { path: newPath, newName: newFileName } = this.getNewFilePath({
       path,
       newName,
       permanent,
     })
     const filePath = `${newPath}/${newFileName}.${mime.extension(file.mimetype)}`
-    const res = await this.s3Service.putObject(
+    const res = await this.mediaStorageService.putObject(
       filePath,
       file.buffer,
       file.mimetype,
     )
-    return { key: res.path }
+    return {
+      key: res.path,
+      url: this.mediaStorageService.buildUrl(res.path),
+    }
   }
 
   /**
@@ -73,7 +89,7 @@ export class FileService {
     const { path, permanent, fileType } = option
     const objectName = `${config.environment}/${permanent ? '' : 'temp/'}${path || 'nopath'}${`/${dayjs().format('YYYYMM')}/${uuidv4()}.${fileType}`}`
     const contentType = mime.lookup(fileType) || 'application/octet-stream'
-    const res = await this.s3Service.putObject(
+    const res = await this.mediaStorageService.putObject(
       objectName,
       buffer,
       contentType,
@@ -93,7 +109,7 @@ export class FileService {
       path,
     })
     const filePath = `${newPath}/${newFileName}.${mime.extension(fileType)}`
-    const res = await this.s3Service.initiateMultipartUpload(filePath, fileType)
+    const res = await this.mediaStorageService.initiateMultipartUpload(filePath, fileType)
     return {
       uploadId: res,
       fileId: filePath,
@@ -114,7 +130,7 @@ export class FileService {
     partNumber: number,
     partData: Buffer,
   ) {
-    const res = await this.s3Service.uploadPart(
+    const res = await this.mediaStorageService.uploadPart(
       fileId,
       uploadId,
       partNumber,
@@ -139,7 +155,7 @@ export class FileService {
     uploadId: string,
     parts: { PartNumber: number, ETag: string }[],
   ) {
-    const res = await this.s3Service.completeMultipartUpload(
+    const res = await this.mediaStorageService.completeMultipartUpload(
       key,
       uploadId,
       parts,
@@ -157,7 +173,7 @@ export class FileService {
     key: string,
   ) {
     const contentType = mime.lookup(key) || 'application/octet-stream'
-    const presigned = await this.s3Service.getUploadSign(
+    const presigned = await this.mediaStorageService.getUploadSign(
       key,
       contentType,
     )

@@ -47,6 +47,24 @@ const TiktokSchema = z.object({
   scopes: z.array(z.string()).default([]),
 })
 
+const DouyinSchema = z.object({
+  mcpUrl: z.string().default(''),
+  mcpAuthToken: z.string().default(''),
+  timeoutMs: z.number().int().positive().default(30000),
+})
+
+const XiaohongshuSchema = z.object({
+  mcpUrl: z.string().default(''),
+  mcpAuthToken: z.string().default(''),
+  timeoutMs: z.number().int().positive().default(30000),
+})
+
+const WxSphSchema = z.object({
+  mcpUrl: z.string().default(''),
+  mcpAuthToken: z.string().default(''),
+  timeoutMs: z.number().int().positive().default(30000),
+})
+
 // twitter配置
 const TwitterSchema = z.object({
   clientId: z.string().default(''),
@@ -109,6 +127,21 @@ export const configSchema = z.object({
   google: GoogleSchema,
   pinterest: PinterestSchema,
   tiktok: TiktokSchema,
+  douyin: DouyinSchema.default({
+    mcpUrl: '',
+    mcpAuthToken: '',
+    timeoutMs: 30000,
+  }),
+  xiaohongshu: XiaohongshuSchema.default({
+    mcpUrl: '',
+    mcpAuthToken: '',
+    timeoutMs: 30000,
+  }),
+  wxSph: WxSphSchema.default({
+    mcpUrl: '',
+    mcpAuthToken: '',
+    timeoutMs: 30000,
+  }),
   twitter: TwitterSchema,
   wxPlat: WxPlatSchema,
   myWxPlat: MyWxPlatSchema,

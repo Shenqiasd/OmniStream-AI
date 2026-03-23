@@ -2,6 +2,32 @@ import { useUserStore } from '@/store/user'
 import { getOssUrl } from '@/utils/oss'
 import http from '@/utils/request'
 
+export type ProviderCategory = 'text' | 'image' | 'video'
+export type ProviderType
+  = | 'openai-compatible'
+    | 'openai-sora'
+    | 'kling'
+    | 'seedance-compatible'
+    | 'custom-video-api'
+    | 'libtv'
+
+export interface ProviderSetting {
+  providerKey: string
+  providerType: ProviderType
+  category: ProviderCategory
+  label: string
+  enabled: boolean
+  localMode: boolean
+  baseUrl: string
+  apiKey: string
+  hasApiKey?: boolean
+  model: string
+  callbackUrl?: string
+  timeoutMs?: number
+  headers?: Record<string, string>
+  extraConfig?: Record<string, unknown>
+}
+
 // 获取聊天大模型列表
 export function getChatModels() {
   return http.get('ai/models/chat')
@@ -18,6 +44,29 @@ export function putUserAiConfigItem(data: {
   [key: string]: any
 }) {
   return http.put('user/ai/config/item', data)
+}
+
+export function getProviderSettings() {
+  return http.get<ProviderSetting[]>('ai/provider-settings')
+}
+
+export function upsertProviderSetting(providerKey: string, data: ProviderSetting) {
+  return http.put<ProviderSetting>(`ai/provider-settings/${providerKey}`, data)
+}
+
+export function deleteProviderSetting(providerKey: string) {
+  return http.delete(`ai/provider-settings/${providerKey}`)
+}
+
+export function testProviderConnection(data: Partial<ProviderSetting> & {
+  providerKey: string
+}) {
+  return http.post<{
+    success: boolean
+    status: number
+    url: string
+    errorMessage?: string
+  }>('ai/provider-settings/test-connection', data, true)
 }
 
 // 文生图 - 异步接口
@@ -205,8 +254,10 @@ export async function aiChatStream(data: {
   max_tokens?: number
 }) {
   const lang = useUserStore.getState().lang
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+  const endpoint = `${apiBase}/ai/chat`
 
-  const response = await fetch('https://aitoearn.ai/api/ai/chat', {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -214,7 +265,7 @@ export async function aiChatStream(data: {
     },
     body: JSON.stringify({
       stream: false, // 使用非流式响应
-      model: 'gpt-5.1-all',
+      model: data.model || 'gpt-5.1-all',
       temperature: 1,
       presence_penalty: 0,
       frequency_penalty: 0,

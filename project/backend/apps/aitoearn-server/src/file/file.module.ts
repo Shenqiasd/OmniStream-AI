@@ -10,6 +10,7 @@ import { S3Module } from '@yikart/aws-s3'
 import { config } from '../config'
 import { FileController } from './file.controller'
 import { FileService } from './file.service'
+import { LocalMediaService } from './storage/local-media.service'
 
 @Global()
 @Module({
@@ -17,7 +18,7 @@ import { FileService } from './file.service'
     S3Module.forRoot(config.awsS3),
   ],
   controllers: [FileController],
-  providers: [FileService],
-  exports: [FileService],
+  providers: [FileService, LocalMediaService],
+  exports: [FileService, LocalMediaService],
 })
 export class FileModule {}

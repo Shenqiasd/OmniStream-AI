@@ -68,6 +68,16 @@ export class AccountController {
   }
 
   @ApiDoc({
+    summary: 'Get Social Media Account List By User',
+  })
+  @Get('/:userId/socials/accounts')
+  async getUserAccounts(
+    @Param('userId') userId: string,
+  ) {
+    return await this.accountInternalService.getUserAccounts(userId)
+  }
+
+  @ApiDoc({
     summary: 'Update Social Media Account',
     body: UpdateAccountDto.schema,
   })

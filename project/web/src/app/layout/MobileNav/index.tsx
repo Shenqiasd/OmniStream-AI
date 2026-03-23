@@ -186,7 +186,7 @@ function MobileNavList({
               'flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-all w-full',
               'text-muted-foreground hover:bg-muted hover:text-foreground',
               moreOpen && 'bg-muted text-foreground',
-    
+            )}
           >
             <span className="flex items-center justify-center">
               <MoreHorizontal size={20} />
@@ -196,7 +196,7 @@ function MobileNavList({
               <ChevronUp size={18} className="text-muted-foreground" />
             ) : (
               <ChevronDown size={18} className="text-muted-foreground" />
-    
+            )}
           </button>
 
           {/* Expanded items */}
@@ -213,7 +213,7 @@ function MobileNavList({
                 />
               ))}
             </div>
-  
+          )}
         </div>
       )}
     </nav>
@@ -239,7 +239,8 @@ function MobileUserSection({
     // TODO: 实现新的登录逻辑
   }
 
-  if (token && userInfo) {
+  // 无需登录，直接显示用户信息
+  if (userInfo) {
     return (
       <button
         onClick={() => {
@@ -306,12 +307,10 @@ function MobileBottomSection({
     && new Date(userInfo.vipInfo.expireTime) > new Date(),
   )
 
-  // 登录后获取余额
+  // 获取余额
   useEffect(() => {
-    if (token) {
-      fetchCreditsBalance()
-    }
-  }, [ fetchCreditsBalance])
+    fetchCreditsBalance()
+  }, [fetchCreditsBalance])
 
   return (
     <>
@@ -349,7 +348,7 @@ function MobileBottomSection({
                 $
                 {centsToUsd(creditsBalance)}
               </span>
-    
+            )}
           </button>
 
 
@@ -366,13 +365,13 @@ function MobileBottomSection({
             </div>
             {!isVip && (
               <span className="text-xs text-muted-foreground">{t('subscribe')}</span>
-    
+            )}
           </div>
           {!isVip && (
             <div className="mt-1 ml-8">
               <span className="text-[10px] text-orange-500 font-medium">$19→$50 Credits</span>
             </div>
-  
+          )}
         </Link>
       </div>
 
@@ -411,7 +410,7 @@ function MobileBottomSection({
               >
                 {unreadCount > 99 ? '99+' : unreadCount}
               </Badge>
-    
+            )}
           </button>
 
       </div>
@@ -505,7 +504,7 @@ function MobileNav() {
         className={cn(
           'md:hidden fixed top-0 right-0 z-50 w-[300px] h-full bg-background shadow-xl transition-transform duration-300 ease-in-out flex flex-col',
           isOpen ? 'translate-x-0' : 'translate-x-full',
-
+        )}
       >
         {/* 抽屉头部 */}
         <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">

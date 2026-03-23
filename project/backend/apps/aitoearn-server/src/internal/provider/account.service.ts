@@ -25,6 +25,10 @@ export class AccountInternalService {
     )
   }
 
+  async getUserAccounts(userId: string) {
+    return await this.accountService.getStoredUserAccounts(userId)
+  }
+
   async updateAccountInfo(userId: string, body: UpdateAccountDto) {
     const res = await this.accountService.updateAccountInfoById(body.id, {
       userId,

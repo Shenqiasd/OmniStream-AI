@@ -1,4 +1,5 @@
 import { s3ConfigSchema } from '@yikart/aws-s3'
+import { aitoearnAuthConfigSchema } from '@yikart/aitoearn-auth'
 import { baseConfig, createZodDto, selectConfig } from '@yikart/common'
 import { AiLogChannel, mongodbConfigSchema } from '@yikart/mongodb'
 import { redisConfigSchema } from '@yikart/redis'
@@ -169,6 +170,7 @@ const listmonkConfigSchema = z.object({
 
 export const appConfigSchema = z.object({
   ...baseConfig.shape,
+  auth: aitoearnAuthConfigSchema,
   redis: redisConfigSchema,
   mongodb: mongodbConfigSchema,
   redlock: redlockConfigSchema,

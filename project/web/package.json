@@ -5,8 +5,9 @@
   "scripts": {
     "postbuild": "next-sitemap",
     "dev": "next dev -p 6060",
-    "dev:local": "cross-env NEXT_PUBLIC_API_URL=http://localhost:7001/api next dev",
+    "dev:local": "cross-env NEXT_PUBLIC_API_URL=http://localhost:3002 next dev -p 6060",
     "build": "next build",
+    "test:store-graph": "node scripts/check-store-imports.mjs",
     "type-check": "tsc --noEmit",
     "build:copy": "tsc && next build && npm run copy-static",
     "copy-static": "xcopy public .next\\standalone\\public /E /I /Y && if exist .next\\static xcopy .next\\static .next\\standalone\\.next\\static /E /I /Y",

@@ -28,6 +28,8 @@ import { useTransClient } from '@/app/i18n/client'
 import { formatImg, VideoGrabFrame } from '@/components/PublishDialog/PublishDialog.util'
 import { Modal } from '@/components/ui/modal'
 import { toast } from '@/lib/toast'
+import { useAiConfigStore } from '@/store/aiConfig'
+import { useUserStore } from '@/store/user'
 import { getOssUrl } from '@/utils/oss'
 import styles from '../publishDialog.module.scss'
 
@@ -318,6 +320,7 @@ const PublishDialogAi = memo(
       ref: ForwardedRef<IPublishDialogAiRef>,
     ) => {
       const { t } = useTransClient('publish')
+      const userInfo = useUserStore(state => state.userInfo)
       const [activeAction, setActiveAction] = useState<AIAction | null>(null)
       const [messages, setMessages] = useState<Message[]>([])
       const [inputValue, setInputValue] = useState('')
@@ -333,25 +336,24 @@ const PublishDialogAi = memo(
       // Save syncToEditor reference to avoid circular dependencies
       const syncToEditorRef = useRef<((content: string, action?: AIAction) => Promise<void>) | null>(null)
 
+      // Use centralized AI config store for model defaults
+      const aiConfigStore = useAiConfigStore()
+
       // Chat model state (for shorten/expand/polish/translate/hashtags)
       const [selectedChatModel, setSelectedChatModel] = useState(() => {
-        const savedModel = localStorage.getItem('ai_chat_model')
-        return savedModel || 'gpt-5.1-all'
+        return aiConfigStore.getDefaultModel('text')
       })
 
       // Image generation model state
       const [selectedImageModel, setSelectedImageModel] = useState(() => {
-        const savedModel = localStorage.getItem('ai_image_model')
-        return savedModel || 'gemini-2.5-flash-image'
+        return aiConfigStore.getDefaultModel('image')
       })
 
       // Video generation state
       const [videoModels, setVideoModels] = useState<any[]>([])
       const videoModelsLoadingRef = useRef(true) // Use ref to track loading state
-      // Initialize from localStorage or use default 'sora-2'
       const [selectedVideoModel, setSelectedVideoModel] = useState(() => {
-        const savedModel = localStorage.getItem('ai_video_model')
-        return savedModel || 'sora-2'
+        return aiConfigStore.getDefaultModel('video')
       })
       const [videoTaskId, setVideoTaskId] = useState<string | null>(null)
       const [videoStatus, setVideoStatus] = useState<string>('')
@@ -368,38 +370,22 @@ const PublishDialogAi = memo(
         }
       }, [messages])
 
-      // Initialize chat and image models
+      // Initialize chat and image models - validate against available list
       useEffect(() => {
         if (chatModels.length > 0) {
-          // Check if current chat model exists in list
           const chatModelExists = chatModels.find((m: any) => m.name === selectedChatModel)
           if (!chatModelExists) {
-            // Try to find default model
-            const defaultModel = chatModels.find((m: any) => m.name === 'gpt-5.1-all')
-            if (defaultModel) {
-              setSelectedChatModel(defaultModel.name)
-              localStorage.setItem('ai_chat_model', defaultModel.name)
-            }
-            else if (chatModels.length > 0) {
-              // Use first model if default not found
-              setSelectedChatModel(chatModels[0].name)
-              localStorage.setItem('ai_chat_model', chatModels[0].name)
+            const fallback = chatModels.find((m: any) => m.name === 'gpt-5.1-all') || chatModels[0]
+            if (fallback) {
+              setSelectedChatModel(fallback.name)
             }
           }
 
-          // Check if current image model exists in list
           const imageModelExists = chatModels.find((m: any) => m.name === selectedImageModel)
           if (!imageModelExists) {
-            // Try to find default model
-            const defaultModel = chatModels.find((m: any) => m.name === 'gemini-2.5-flash-image')
-            if (defaultModel) {
-              setSelectedImageModel(defaultModel.name)
-              localStorage.setItem('ai_image_model', defaultModel.name)
-            }
-            else if (chatModels.length > 0) {
-              // Use first model if default not found
-              setSelectedImageModel(chatModels[0].name)
-              localStorage.setItem('ai_image_model', chatModels[0].name)
+            const fallback = chatModels.find((m: any) => m.name === 'gemini-2.5-flash-image') || chatModels[0]
+            if (fallback) {
+              setSelectedImageModel(fallback.name)
             }
           }
         }
@@ -414,34 +400,14 @@ const PublishDialogAi = memo(
             if (res.data && Array.isArray(res.data)) {
               setVideoModels(res.data)
 
-              // Read saved model from localStorage
-              const savedModel = localStorage.getItem('ai_video_model')
-
-              // Check if current model exists in list
               const currentModelExists = res.data.find((m: any) => m.name === selectedVideoModel)
-
-              if (currentModelExists) {
-                // Current model is valid, no update needed
-              }
-              else if (savedModel && res.data.find((m: any) => m.name === savedModel)) {
-                // Use saved model if it exists in list
-                setSelectedVideoModel(savedModel)
-              }
-              else {
-                // Try to find sora-related model
+              if (!currentModelExists) {
                 const soraModel = res.data.find((m: any) =>
                   m.name?.toLowerCase().includes('sora') || m.name === 'sora-2',
                 )
-
-                if (soraModel) {
-                  // Prefer sora model
-                  setSelectedVideoModel(soraModel.name)
-                  localStorage.setItem('ai_video_model', soraModel.name)
-                }
-                else if (res.data.length > 0) {
-                  // Use first model if no sora found
-                  setSelectedVideoModel(res.data[0].name)
-                  localStorage.setItem('ai_video_model', res.data[0].name)
+                const fallback = soraModel || res.data[0]
+                if (fallback) {
+                  setSelectedVideoModel(fallback.name)
                 }
               }
             }
@@ -455,7 +421,19 @@ const PublishDialogAi = memo(
         }
 
         fetchVideoModels()
-      }, []) // Only execute once on component mount
+      }, [])
+
+      // Sync from server-side user AI config
+      useEffect(() => {
+        const agentDefaultModel = userInfo?.aiInfo?.agent?.defaultModel
+        if (agentDefaultModel) {
+          setSelectedChatModel(agentDefaultModel)
+        }
+        const videoDefaultModel = userInfo?.aiInfo?.video?.defaultModel
+        if (videoDefaultModel) {
+          setSelectedVideoModel(videoDefaultModel)
+        }
+      }, [userInfo?.aiInfo?.agent?.defaultModel, userInfo?.aiInfo?.video?.defaultModel])
 
       // Poll video task status
       const pollVideoTaskStatus = useCallback(async (taskId: string) => {
@@ -1459,7 +1437,7 @@ const PublishDialogAi = memo(
                 value={selectedChatModel}
                 onChange={(value) => {
                   setSelectedChatModel(value)
-                  localStorage.setItem('ai_chat_model', value)
+                  aiConfigStore.syncDefaultModel('agent', value)
                   toast.success(t('aiFeatures.chatModelSaved' as any))
                 }}
                 style={{ width: '100%' }}
@@ -1495,7 +1473,7 @@ const PublishDialogAi = memo(
                 value={selectedImageModel}
                 onChange={(value) => {
                   setSelectedImageModel(value)
-                  localStorage.setItem('ai_image_model', value)
+                  aiConfigStore.syncDefaultModel('image', value)
                   toast.success(t('aiFeatures.imageModelSaved' as any))
                 }}
                 style={{ width: '100%' }}
@@ -1531,7 +1509,7 @@ const PublishDialogAi = memo(
                 value={selectedVideoModel}
                 onChange={(value) => {
                   setSelectedVideoModel(value)
-                  localStorage.setItem('ai_video_model', value)
+                  aiConfigStore.syncDefaultModel('video', value)
                   toast.success(t('aiFeatures.videoModelSaved' as any))
                 }}
                 style={{ width: '100%' }}

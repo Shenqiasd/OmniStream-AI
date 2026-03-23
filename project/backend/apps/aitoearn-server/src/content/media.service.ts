@@ -1,10 +1,9 @@
 import { basename, join } from 'node:path'
 import { Injectable, Logger } from '@nestjs/common'
-import { S3Service } from '@yikart/aws-s3'
 import { TableDto, UserType } from '@yikart/common'
 import { Media, MediaRepository, MediaType } from '@yikart/mongodb'
 import { fileUtil } from '../common/utils/file.util'
-import { config } from '../config'
+import { LocalMediaService } from '../file/storage/local-media.service'
 import { StorageService } from '../user/storage.service'
 import { CreateMediaDto } from './dto/media.dto'
 
@@ -12,7 +11,7 @@ import { CreateMediaDto } from './dto/media.dto'
 export class MediaService {
   private readonly logger = new Logger(MediaService.name)
   constructor(
-    private readonly s3Service: S3Service,
+    private readonly mediaStorageService: LocalMediaService,
     private readonly mediaRepository: MediaRepository,
     private readonly storageService: StorageService,
   ) { }
@@ -20,19 +19,17 @@ export class MediaService {
   async create(userId: string, newData: CreateMediaDto) {
     let path = newData.url
     if (newData.url.startsWith('http://') || newData.url.startsWith('https://')) {
-      const url = new URL(newData.url)
-      const s3Endpoint = config.awsS3.endpoint
-      const cdnEndpoint = config.awsS3.cdnEndpoint
-
-      if (url.origin === s3Endpoint || (cdnEndpoint && url.origin === cdnEndpoint)) {
-        path = url.pathname.substring(1)
+      const trimmedPath = fileUtil.trimHost(newData.url)
+      if (trimmedPath !== newData.url) {
+        path = trimmedPath
       }
       else {
+        const url = new URL(newData.url)
         path = join(userId, `${Date.now().toString(36)}-${basename(url.pathname)}`)
-        await this.s3Service.putObjectFromUrl(url.href, path)
+        await this.mediaStorageService.putObjectFromUrl(url.href, path)
       }
     }
-    const metadata = await this.s3Service.headObject(path)
+    const metadata = await this.mediaStorageService.headObject(path)
 
     await this.storageService.addUsedStorage({
       userId,
@@ -187,7 +184,7 @@ export class MediaService {
         ? fileUtil.trimHost(newData.url)
         : newData.url!
 
-      const metadata = await this.s3Service.headObject(objectPath)
+      const metadata = await this.mediaStorageService.headObject(objectPath)
       newData.metadata = {
         size: metadata.ContentLength!,
         mimeType: metadata.ContentType!,

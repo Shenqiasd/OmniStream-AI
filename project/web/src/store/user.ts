@@ -4,8 +4,8 @@ import { getUserInfoApi } from '@/api/apiReq'
 import { getCreditsBalanceApi } from '@/api/credits'
 import { useDataStatisticsStore } from '@/app/[lng]/dataStatistics/useDataStatistics'
 import { PublishDatePickerType } from '@/components/PublishDialog/compoents/PublishDatePicker/publishDatePicker.enums'
+import { useAccountStore } from '@/store/account'
 import { createPersistStore } from '@/utils/createPersistStore'
-import { useAccountStore } from '.'
 
 export interface UserInfo {
   createTime: string
@@ -38,6 +38,24 @@ export interface UserInfo {
       | 'expired'
     _id: string
   }
+  aiInfo?: {
+    image?: {
+      defaultModel?: string
+      option?: Record<string, any>
+    }
+    edit?: {
+      defaultModel?: string
+      option?: Record<string, any>
+    }
+    video?: {
+      defaultModel?: string
+      option?: Record<string, any>
+    }
+    agent?: {
+      defaultModel?: string
+      option?: Record<string, any>
+    }
+  }
 }
 
 export interface IUserStore {
@@ -59,8 +77,14 @@ export interface IUserStore {
   sidebarCollapsed: boolean
 }
 
+const LOCAL_USER_INFO: Partial<UserInfo> = {
+  id: '000000000000000000000001',
+  mail: 'local@aitoearn.dev',
+  name: 'Local Dev User',
+}
+
 const state: IUserStore = {
-  userInfo: {},
+  userInfo: LOCAL_USER_INFO,
   isAddAccountPorxy: false,
   lang: i18next.language || 'en',
   defaultCurrentDatePickerType: PublishDatePickerType.DATE,
@@ -103,6 +127,12 @@ export const useUserStore = createPersistStore(
 
       appInit() {
         useDataStatisticsStore.getState().init()
+        set({
+          userInfo: {
+            ...LOCAL_USER_INFO,
+            ..._get().userInfo,
+          },
+        })
         methods.getUserInfo()
         useAccountStore.getState().accountInit()
       },
@@ -112,7 +142,10 @@ export const useUserStore = createPersistStore(
         const res = await getUserInfoApi()
         if (res) {
           set({
-            userInfo: res.data,
+            userInfo: {
+              ...LOCAL_USER_INFO,
+              ...res.data,
+            },
           })
         }
       },

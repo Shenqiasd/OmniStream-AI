@@ -1,14 +1,26 @@
-import { Body, Controller, Logger, Param, Post } from '@nestjs/common'
+import { Body, Controller, Get, Logger, Param, Post } from '@nestjs/common'
 import { ApiTags } from '@nestjs/swagger'
 import { AccountStatus } from '@yikart/aitoearn-server-client'
 import { AccountType, ApiDoc } from '@yikart/common'
+import { PlatformAdapterRegistryService } from './adapters/adapter-registry.service'
 import { PlatformService } from './platforms.service'
 
 @ApiTags('OpenSource/Core/Platforms/Platforms')
 @Controller()
 export class PlatformController {
   private readonly logger = new Logger(PlatformController.name)
-  constructor(private readonly platformService: PlatformService) {}
+  constructor(
+    private readonly platformService: PlatformService,
+    private readonly platformAdapterRegistry: PlatformAdapterRegistryService,
+  ) {}
+
+  @ApiDoc({
+    summary: 'List Platform Adapters',
+  })
+  @Get('platforms')
+  async listAdapters() {
+    return this.platformAdapterRegistry.list()
+  }
 
   @ApiDoc({
     summary: 'List User Accounts',

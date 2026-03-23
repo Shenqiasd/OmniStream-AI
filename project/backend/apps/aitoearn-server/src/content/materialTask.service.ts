@@ -7,11 +7,10 @@
  */
 import { Injectable, Logger } from '@nestjs/common'
 import { QueueService } from '@yikart/aitoearn-queue'
-import { buildUrl } from '@yikart/aws-s3'
 import { AppException, ResponseCode, UserType } from '@yikart/common'
 import { MaterialStatus, MaterialTaskRepository, MaterialType } from '@yikart/mongodb'
 import { RedisService } from '@yikart/redis'
-import { config } from '../config'
+import { fileUtil } from '../common/utils/file.util'
 import { MaterialMedia, MaterialTask, MediaType, MediaUrlInfo, NewMaterial, NewMaterialTask } from './common'
 import { CreateMaterialTaskDto } from './dto/material.dto'
 import { MaterialService } from './material.service'
@@ -257,14 +256,14 @@ export class MaterialTaskService {
       if (!theOne)
         continue
 
-      const content = await this.generateMediaContent(
-        { userId: taskInfo.userId, userType: taskInfo.userType },
-        taskInfo.aiModelTag,
-        theOne.type,
-        buildUrl(config.awsS3.endpoint, theOne.url),
-        taskInfo.prompt,
-        {
-          systemPrompt: taskInfo.systemPrompt,
+        const content = await this.generateMediaContent(
+          { userId: taskInfo.userId, userType: taskInfo.userType },
+          taskInfo.aiModelTag,
+          theOne.type,
+          fileUtil.buildUrl(theOne.url),
+          taskInfo.prompt,
+          {
+            systemPrompt: taskInfo.systemPrompt,
         },
       )
       if (!content) {
@@ -406,7 +405,7 @@ export class MaterialTaskService {
           taskInfo.prompt,
           {
             coverUrl: theOneCover.url
-              ? buildUrl(config.awsS3.endpoint, theOneCover.url)
+              ? fileUtil.buildUrl(theOneCover.url)
               : undefined,
             systemPrompt: taskInfo.systemPrompt,
           },

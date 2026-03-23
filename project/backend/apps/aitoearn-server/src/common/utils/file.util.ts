@@ -1,22 +1,25 @@
 import * as fs from 'node:fs'
 import path from 'node:path'
-import { buildUrl, zodBuildUrl } from '@yikart/aws-s3'
 import { z } from 'zod'
 import { config } from '../../config'
 
 class FileUtil {
+  private isLocalBackend = ['development', 'local'].includes(config.environment)
   private cdnEndpoint = config.awsS3.cdnEndpoint
   private s3Endpoint = config.awsS3.endpoint
-  private hostUrl = this.cdnEndpoint || this.s3Endpoint
+  private localEndpoint = `http://localhost:${config.port}/media`
+  private hostUrl = this.isLocalBackend ? this.localEndpoint : (this.cdnEndpoint || this.s3Endpoint)
 
   public buildUrl(path = '') {
     if (!path)
       return path
-    return buildUrl(this.hostUrl, path)
+    if (/^https?:\/\//.test(path))
+      return path
+    return new URL(path.replace(/^\/+/, ''), `${this.hostUrl}/`).toString()
   }
 
   zodBuildUrl() {
-    return zodBuildUrl(this.hostUrl)
+    return z.string().transform(url => this.buildUrl(url))
   }
 
   /**
@@ -28,6 +31,10 @@ class FileUtil {
   public trimHost(url: string) {
     if (!url)
       return url
+
+    if (this.isLocalBackend && url.startsWith(this.localEndpoint)) {
+      return url.replace(this.localEndpoint, '').replace(/^\/+/, '')
+    }
 
     // 优先尝试移除 CDN 端点
     if (this.cdnEndpoint && url.startsWith(this.cdnEndpoint)) {

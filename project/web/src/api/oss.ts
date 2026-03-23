@@ -67,6 +67,71 @@ export async function uploadToOss(file: File | Blob, options?: UploadToOssOption
       contentType,
     )
 
+    if (presignedData.mode === 'local' || presignedData.uploadUrl) {
+      const uploadUrl = presignedData.uploadUrl || presignedData.url
+      const formData = new FormData()
+      if (presignedData.fields?.key) {
+        formData.append('key', presignedData.fields.key)
+      }
+      formData.append('file', file)
+
+      if (opts.onProgress) {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+
+          xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+              const progress = Math.round((event.loaded / event.total) * 100)
+              opts.onProgress?.(progress)
+            }
+          })
+
+          const handleAbort = () => {
+            xhr.abort()
+            reject(new DOMException('上传失败: 用户取消', 'AbortError'))
+          }
+
+          opts.signal?.addEventListener('abort', handleAbort, { once: true })
+
+          xhr.addEventListener('load', () => {
+            opts.signal?.removeEventListener('abort', handleAbort)
+            try {
+              const response = JSON.parse(xhr.responseText || '{}')
+              if (xhr.status >= 200 && xhr.status < 300 && response?.code === 0 && response?.data?.url) {
+                resolve(response.data.url)
+                return
+              }
+              reject(new Error(`上传失败: ${response?.message || xhr.statusText}`))
+            }
+            catch {
+              reject(new Error(`上传失败: ${xhr.statusText}`))
+            }
+          })
+
+          xhr.addEventListener('error', () => {
+            opts.signal?.removeEventListener('abort', handleAbort)
+            reject(new Error('上传失败: 网络错误'))
+          })
+
+          xhr.open('POST', uploadUrl)
+          xhr.send(formData)
+        })
+      }
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+        signal: opts.signal,
+      })
+
+      const uploadBody = await uploadResponse.json().catch(() => null)
+      if (!uploadResponse.ok || uploadBody?.code !== 0 || !uploadBody?.data?.url) {
+        throw new Error(`上传失败: ${uploadBody?.message || uploadResponse.statusText}`)
+      }
+
+      return uploadBody.data.url
+    }
+
     // 创建 FormData 用于直传 (按照 AWS S3 presigned post 要求)
     const formData = new FormData()
 

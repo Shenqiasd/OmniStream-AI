@@ -68,31 +68,6 @@ export function UserSection({ collapsed, onLogin, onOpenSettings }: UserSectionP
   // const token = useUserStore(state => state.token) // Removed - no auth
   const { t } = useTransClient('common')
 
-  if (token) {
-    return <UserAvatar collapsed={collapsed} onOpenSettings={() => onOpenSettings()} />
-  }
-
-  // 未登录状态
-  if (collapsed) {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button onClick={onLogin} size="icon" className="h-9 w-9">
-              <span className="text-sm font-semibold">In</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>{t('login')}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    )
-  }
-
-  return (
-    <Button onClick={onLogin} className="mt-1 w-full">
-      {t('login')}
-    </Button>
-  )
+  // Always show user avatar (no auth required)
+  return <UserAvatar collapsed={collapsed} onOpenSettings={() => onOpenSettings()} />
 }

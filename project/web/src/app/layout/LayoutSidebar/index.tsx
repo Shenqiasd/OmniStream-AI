@@ -137,7 +137,7 @@ function LayoutSidebar() {
           {/* 底部图标栏 */}
           <IconBar
             collapsed={collapsed}
-            isLoggedIn={!!token}
+            isLoggedIn={true}
             unreadCount={unreadCount}
             onOpenNotification={() => setNotificationVisible(true)}
             onOpenSettings={handleOpenSettings}

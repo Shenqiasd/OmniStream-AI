@@ -7,7 +7,6 @@ import { useDataStatisticsStore } from '@/app/[lng]/dataStatistics/useDataStatis
 import { PlatType } from '@/app/config/platConfig'
 import { directTrans } from '@/app/i18n/client'
 import { usePluginStore } from '@/store/plugin'
-import { useUserStore } from '@/store/user'
 
 export interface AccountGroup extends AccountGroupItem {
   children: SocialAccount[]
