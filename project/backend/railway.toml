@@ -1,0 +1,9 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile.railway"
+# Set APP_NAME via Railway dashboard > Service > Settings > Build > Docker Build Args
+# For aitoearn-server: APP_NAME=aitoearn-server
+# For aitoearn-channel: APP_NAME=aitoearn-channel
+
+[deploy]
+healthcheckPath = "/health"

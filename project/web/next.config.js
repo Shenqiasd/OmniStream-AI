@@ -33,7 +33,7 @@ const nextConfig = {
     return config
   },
   reactStrictMode: false,
-  // output: 'standalone', // Temporarily disabled for Turbopack compatibility
+  output: 'standalone',
   productionBrowserSourceMaps: process.env.NEXT_PUBLIC_EVN === 'dev',
   rewrites: async () => {
     const rewrites = [
