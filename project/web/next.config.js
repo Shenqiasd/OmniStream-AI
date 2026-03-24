@@ -36,16 +36,21 @@ const nextConfig = {
   output: 'standalone',
   productionBrowserSourceMaps: process.env.NEXT_PUBLIC_EVN === 'dev',
   rewrites: async () => {
-    const rewrites = [
-      {
+    const rewrites = []
+
+    if (process.env.NEXT_PUBLIC_OSS_URL_PROXY && process.env.NEXT_PUBLIC_OSS_URL) {
+      rewrites.push({
         source: `${process.env.NEXT_PUBLIC_OSS_URL_PROXY}:path*`,
         destination: `${process.env.NEXT_PUBLIC_OSS_URL}/:path*`,
-      },
-      {
+      })
+    }
+
+    if (process.env.NEXT_PUBLIC_S3_PROXY && process.env.NEXT_PUBLIC_S3_URL) {
+      rewrites.push({
         source: `${process.env.NEXT_PUBLIC_S3_PROXY}:path*`,
         destination: `${process.env.NEXT_PUBLIC_S3_URL}:path*`,
-      },
-    ]
+      })
+    }
 
     if (process.env.NEXT_PUBLIC_PROXY_URL) {
       rewrites.push({
